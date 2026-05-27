@@ -5,7 +5,7 @@ on:
 
 jobs:
   android:
-    name: Android: Test, Build AppBundle & Distribute
+    name: Android Test, Build AppBundle & Distribute
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
