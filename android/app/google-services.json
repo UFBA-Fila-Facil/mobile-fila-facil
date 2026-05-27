@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "245106255438",
+    "project_id": "fila-facil-a7282",
+    "storage_bucket": "fila-facil-a7282.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:245106255438:android:073f76331487e339e1c51f",
+        "android_client_info": {
+          "package_name": "com.ufba.mobile_fila_facil"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCUZ6S8vMfc4KvC3tkvTSdSK_vZL3lxWqw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
