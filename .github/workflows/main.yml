@@ -32,7 +32,7 @@ jobs:
         run: flutter test --no-color
 
       - name: Build App Bundle (AAB)
-        run: flutter build appbundle --release
+        run: flutter build apk --release
 
       - name: Install firebase-tools
         run: npm install -g firebase-tools
@@ -44,7 +44,7 @@ jobs:
         run: |
           if [ -z "$FIREBASE_TOKEN" ]; then echo "FIREBASE_TOKEN is not set. Aborting." && exit 1; fi
           if [ -z "$FIREBASE_ANDROID_APP_ID" ]; then echo "FIREBASE_ANDROID_APP_ID is not set. Aborting." && exit 1; fi
-          firebase appdistribution:distribute build/app/outputs/bundle/release/app-release.aab --app $FIREBASE_ANDROID_APP_ID --groups "UFBA - MATC89" --token "$FIREBASE_TOKEN"
+          firebase appdistribution:distribute build/app/outputs/flutter-apk/app-release.apk --app $FIREBASE_ANDROID_APP_ID --groups "UFBA - MATC89" --token "$FIREBASE_TOKEN"
 
   # ios:
   #   name: iOS: Test, Build IPA & Distribute
