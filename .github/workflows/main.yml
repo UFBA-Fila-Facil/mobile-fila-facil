@@ -7,6 +7,7 @@ jobs:
   android:
     name: Android Test, Build AppBundle & Distribute
     runs-on: ubuntu-latest
+    environment: Esteira
     steps:
       - uses: actions/checkout@v4
 
@@ -37,7 +38,6 @@ jobs:
       #   run: npm install -g firebase-tools
 
       - name: Teste de credenciais de distribuição
-        environment: Esteira
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
           FIREBASE_ANDROID_APP_ID: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
