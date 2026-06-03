@@ -12,7 +12,20 @@
           "package_name": "com.ufba.mobile_fila_facil"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "245106255438-7h00b85glm42vsv3oa3qfkol20nikmsf.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.ufba.mobile_fila_facil",
+            "certificate_hash": "da39a3ee5e6b4b0d3255bfef95601890afd80709"
+          }
+        },
+        {
+          "client_id": "245106255438-83acpm3pu2o53o7j6uvmp2s20tacv2mt.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCUZ6S8vMfc4KvC3tkvTSdSK_vZL3lxWqw"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "245106255438-83acpm3pu2o53o7j6uvmp2s20tacv2mt.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "245106255438-e4tsldbo22cvsdarmc5kd7f3rhfo0rq5.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.ufba.mobilefilafacil"
+              }
+            }
+          ]
         }
       }
     }

@@ -1,0 +1,25 @@
+{
+   "flutter":{
+      "platforms":{
+         "android":{
+            "default":{
+               "projectId":"fila-facil-a7282",
+               "appId":"1:245106255438:android:073f76331487e339e1c51f",
+               "fileOutput":"android/app/google-services.json"
+            }
+         },
+         "dart":{
+            "lib/firebase_options.dart":{
+               "projectId":"fila-facil-a7282",
+               "configurations":{
+                  "android":"1:245106255438:android:073f76331487e339e1c51f",
+                  "ios":"1:245106255438:ios:7b2ee2a5d547d17be1c51f",
+                  "macos":"1:245106255438:ios:7b2ee2a5d547d17be1c51f",
+                  "web":"1:245106255438:web:7e96819982aefe16e1c51f",
+                  "windows":"1:245106255438:web:97e5567b813aa850e1c51f"
+               }
+            }
+         }
+      }
+   }
+}
