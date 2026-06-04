@@ -56,7 +56,7 @@ class FirebaseAuthService implements AuthService {
   }
 
   String _getGoogleClientId() {
-    return '245106255438-8khsn9b98gmrsq36tianb2uo5tj26enb.apps.googleusercontent.com';
+    return '245106255438-83acpm3pu2o53o7j6uvmp2s20tacv2mt.apps.googleusercontent.com';
   }
 
   @override
