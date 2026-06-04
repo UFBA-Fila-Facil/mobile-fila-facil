@@ -55,15 +55,9 @@ class FirebaseAuthService implements AuthService {
     return credential;
   }
 
-  String _getGoogleClientId() {
-    return '245106255438-83acpm3pu2o53o7j6uvmp2s20tacv2mt.apps.googleusercontent.com';
-  }
-
   @override
   Future<UserCredential> signInWithGoogle() async {
-    final googleUser = await GoogleSignIn(
-      clientId: _getGoogleClientId()
-    ).signIn();
+    final googleUser = await GoogleSignIn().signIn();
     if (googleUser == null) {
       throw Exception('Login com Google cancelado.');
     }
