@@ -17,6 +17,8 @@ abstract class AuthService {
     String password,
   );
 
+  Future<void> sendPasswordResetEmail(String email);
+
   Future<UserCredential> signInWithGoogle();
 
   Future<void> signOut();
@@ -53,6 +55,11 @@ class FirebaseAuthService implements AuthService {
     }
 
     return credential;
+  }
+
+  @override
+  Future<void> sendPasswordResetEmail(String email) {
+    return _auth.sendPasswordResetEmail(email: email);
   }
 
   @override

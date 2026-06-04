@@ -179,7 +179,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       Align(
                         alignment: Alignment.centerRight,
                         child: TextButton(
-                          onPressed: null,
+                          onPressed: _isLoading
+                              ? null
+                              : () {
+                                  Navigator.of(context).pushNamed('/forgot-password');
+                                },
                           child: const Text(
                             'Esqueci minha senha',
                             style: TextStyle(color: Color(0xFF0CA79B)),

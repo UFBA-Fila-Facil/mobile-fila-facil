@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'firebase_options.dart'; // Import the generated file
 
+import 'screens/forgot_password_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
@@ -33,6 +34,7 @@ class MyApp extends StatelessWidget {
       home: AuthGate(authService: service),
       routes: {
         RegisterScreen.routeName: (context) => RegisterScreen(authService: service),
+        ForgotPasswordScreen.routeName: (context) => ForgotPasswordScreen(authService: service),
       },
     );
   }
