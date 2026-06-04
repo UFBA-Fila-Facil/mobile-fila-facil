@@ -61,7 +61,7 @@ class FirebaseAuthService implements AuthService {
     } else if (Platform.isIOS) {
       return '245106255438-e4tsldbo22cvsdarmc5kd7f3rhfo0rq5.apps.googleusercontent.com';
     } else if (Platform.isAndroid) {
-      return '245106255438-7h00b85glm42vsv3oa3qfkol20nikmsf.apps.googleusercontent.com';
+      return '245106255438-ms31be0njpjnt8l00q05q2jrct1ps4qi.apps.googleusercontent.com';
     }
     return "";
   }
