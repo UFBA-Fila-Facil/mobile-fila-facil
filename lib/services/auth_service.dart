@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -62,9 +60,18 @@ class FirebaseAuthService implements AuthService {
     return _auth.sendPasswordResetEmail(email: email);
   }
 
+  Future<GoogleSignInAccount?> _getGoogleSignIn() {
+    if (kIsWeb) {
+      return GoogleSignIn(
+        clientId: '245106255438-83acpm3pu2o53o7j6uvmp2s20tacv2mt.apps.googleusercontent.com'
+      ).signIn();
+    }
+    return GoogleSignIn().signIn();
+  }
+
   @override
   Future<UserCredential> signInWithGoogle() async {
-    final googleUser = await GoogleSignIn().signIn();
+    final googleUser = await _getGoogleSignIn();
     if (googleUser == null) {
       throw Exception('Login com Google cancelado.');
     }
