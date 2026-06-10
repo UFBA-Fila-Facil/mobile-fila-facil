@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<actions>
+  <!--
+    Example App Actions mapping that maps Assistant invocations to a deep link.
+    Configure an Action in the Actions Console to call the app with:
+    https://fila-facil.app/updateQueue?establishmentName={establishmentName}&quantity={quantityPeople}&wait={averageWaitTime}
+    O app buscará o estabelecimento pelo nome entre os estabelecimentos do usuário autenticado.
+  -->
+  <action intentName="actions.intent.OPEN_APP_FEATURE">
+    <fulfillment urlTemplate="https://fila-facil.app/updateQueue?establishmentName={establishmentName}&quantity={quantityPeople}&wait={averageWaitTime}" />
+  </action>
+</actions>

@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/queue_model.dart';
+import '../models/user_queue_entry.dart';
 
 class QueueService {
   final FirebaseFirestore _firestore;
@@ -32,6 +33,42 @@ class QueueService {
     return _collection.where('establishmentId', isEqualTo: establishmentId).snapshots().map((snapshot) {
       if (snapshot.docs.isEmpty) return null;
       return snapshot.docs.first.data();
+    });
+  }
+
+  CollectionReference<Map<String, dynamic>> get _userQueueCollection =>
+      _firestore.collection('user_queues');
+
+  Future<void> joinQueue(String userId, String establishmentId) async {
+    await _userQueueCollection.add({
+      'userId': userId,
+      'establishmentId': establishmentId,
+      'joinedAt': Timestamp.now(),
+      'active': true,
+    });
+  }
+
+  Future<void> leaveQueue(String entryId) async {
+    await _userQueueCollection.doc(entryId).update({'active': false});
+  }
+
+  Stream<UserQueueEntry?> watchUserActiveQueue(String userId) {
+    return _userQueueCollection
+        .where('userId', isEqualTo: userId)
+        .where('active', isEqualTo: true)
+        .limit(1)
+        .snapshots()
+        .map((snapshot) {
+      if (snapshot.docs.isEmpty) return null;
+      final doc = snapshot.docs.first;
+      final data = doc.data();
+      return UserQueueEntry(
+        id: doc.id,
+        userId: data['userId'] as String? ?? '',
+        establishmentId: data['establishmentId'] as String? ?? '',
+        joinedAt: (data['joinedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        active: data['active'] as bool? ?? true,
+      );
     });
   }
 }
