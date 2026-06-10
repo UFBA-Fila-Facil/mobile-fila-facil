@@ -31,13 +31,17 @@ jobs:
       - name: Run unit tests
         run: flutter test --no-color
 
-      - name: Restore Android debug keystore
+      - name: Setup Android signing
         env:
-          ANDROID_DEBUG_KEYSTORE_BASE64: ${{ secrets.ANDROID_DEBUG_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
         run: |
-          if [ -z "$ANDROID_DEBUG_KEYSTORE_BASE64" ]; then echo "ANDROID_DEBUG_KEYSTORE_BASE64 is not set. Aborting." && exit 1; fi
-          mkdir -p ~/.android
-          echo "$ANDROID_DEBUG_KEYSTORE_BASE64" | base64 --decode > ~/.android/debug.keystore
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then echo "ANDROID_KEYSTORE_BASE64 is not set. Aborting." && exit 1; fi
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/keystore.jks
+          printf "storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=../keystore.jks\n" \
+            "$STORE_PASSWORD" "$KEY_PASSWORD" "$KEY_ALIAS" > android/key.properties
 
       - name: Build APK
         run: flutter build apk --release
