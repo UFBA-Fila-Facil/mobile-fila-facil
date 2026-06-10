@@ -24,8 +24,9 @@ class EstablishmentService {
         });
   }
 
-  Future<void> addEstablishment(Establishment establishment) async {
-    await _collection.add(establishment);
+  Future<String> addEstablishment(Establishment establishment) async {
+    final docRef = await _collection.add(establishment);
+    return docRef.id;
   }
 
   Future<void> updateEstablishment(Establishment establishment) async {
@@ -34,5 +35,20 @@ class EstablishmentService {
 
   Future<void> deleteEstablishment(String establishmentId) async {
     await _collection.doc(establishmentId).delete();
+  }
+
+  Stream<Establishment?> watchEstablishment(String id) {
+    return _collection.doc(id).snapshots().map((doc) => doc.exists ? doc.data() : null);
+  }
+
+  Future<List<Establishment>> searchEstablishments(String query) async {
+    final snapshot = await _collection.get();
+    final q = query.toLowerCase().trim();
+    return snapshot.docs
+        .map((doc) => doc.data())
+        .where((est) =>
+            est.name.toLowerCase().contains(q) ||
+            est.address.toLowerCase().contains(q))
+        .toList();
   }
 }

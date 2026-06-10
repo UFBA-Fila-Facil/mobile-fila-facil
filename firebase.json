@@ -1,4 +1,9 @@
 {
+   "functions": {
+      "source": "firebase/functions",
+      "runtime": "nodejs18",
+      "codebase": "default"
+   },
    "flutter":{
       "platforms":{
          "android":{
