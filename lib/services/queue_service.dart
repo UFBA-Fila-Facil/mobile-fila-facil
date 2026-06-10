@@ -71,4 +71,23 @@ class QueueService {
       );
     });
   }
+
+  /// Grava um relatório anônimo enviado por usuário sobre o estado da fila.
+  /// Mantemos os dados privados (não gravamos userId) para atender RNF01.
+  Future<void> reportQueue({
+    required String establishmentId,
+    required int? queueSize,
+    required int? waitMinutes,
+    required String serviceSpeed,
+    required String perceivedSize,
+  }) async {
+    await _firestore.collection('queue_reports').add({
+      'establishmentId': establishmentId,
+      'queueSize': queueSize,
+      'waitMinutes': waitMinutes,
+      'serviceSpeed': serviceSpeed,
+      'perceivedSize': perceivedSize,
+      'createdAt': Timestamp.now(),
+    });
+  }
 }

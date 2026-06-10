@@ -10,6 +10,7 @@ import '../screens/queue_registration_screen.dart';
 import '../services/auth_service.dart';
 import '../services/establishment_service.dart';
 import '../services/queue_service.dart';
+import '../screens/queue_info_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final AuthService authService;
@@ -875,16 +876,18 @@ class _InfoCard extends StatelessWidget {
   final IconData icon;
   final String title;
   final String description;
+  final VoidCallback? onTap;
 
   const _InfoCard({
     required this.icon,
     required this.title,
     required this.description,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final card = Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -928,6 +931,14 @@ class _InfoCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+
+    if (onTap == null) return card;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: onTap,
+      child: card,
     );
   }
 }

@@ -57,22 +57,24 @@ class DefaultFirebaseOptions {
     projectId: 'fila-facil-a7282',
     storageBucket: 'fila-facil-a7282.firebasestorage.app',
   );
-
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyCjy52UmPjtMV00O7so8P_TfEr-gspuNZA',
     appId: '1:245106255438:ios:7b2ee2a5d547d17be1c51f',
     messagingSenderId: '245106255438',
     projectId: 'fila-facil-a7282',
     storageBucket: 'fila-facil-a7282.firebasestorage.app',
+    androidClientId: '245106255438-7h00b85glm42vsv3oa3qfkol20nikmsf.apps.googleusercontent.com',
+    iosClientId: '245106255438-e4tsldbo22cvsdarmc5kd7f3rhfo0rq5.apps.googleusercontent.com',
     iosBundleId: 'com.ufba.mobilefilafacil',
   );
-
   static const FirebaseOptions macos = FirebaseOptions(
     apiKey: 'AIzaSyCjy52UmPjtMV00O7so8P_TfEr-gspuNZA',
     appId: '1:245106255438:ios:7b2ee2a5d547d17be1c51f',
     messagingSenderId: '245106255438',
     projectId: 'fila-facil-a7282',
     storageBucket: 'fila-facil-a7282.firebasestorage.app',
+    androidClientId: '245106255438-7h00b85glm42vsv3oa3qfkol20nikmsf.apps.googleusercontent.com',
+    iosClientId: '245106255438-e4tsldbo22cvsdarmc5kd7f3rhfo0rq5.apps.googleusercontent.com',
     iosBundleId: 'com.ufba.mobilefilafacil',
   );
 
