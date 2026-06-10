@@ -2,7 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'firebase_options.dart'; // Import the generated file
-import 'package:uni_links/uni_links.dart';
+import 'package:app_links/app_links.dart';
 import 'dart:async';
 
 import 'screens/forgot_password_screen.dart';
@@ -29,17 +29,16 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  StreamSubscription<Uri?>? _sub;
+  StreamSubscription<Uri>? _sub;
   final AppActionsHandler _handler = AppActionsHandler();
+  final _appLinks = AppLinks();
 
   @override
   void initState() {
     super.initState();
-    // Handle initial uri
     _handleInitialUri();
-    // Listen for incoming links while app is running
-    _sub = uriLinkStream.listen((Uri? uri) {
-      if (uri != null) _processUri(uri);
+    _sub = _appLinks.uriLinkStream.listen((Uri uri) {
+      _processUri(uri);
     }, onError: (err) {
       // ignore
     });
@@ -47,7 +46,7 @@ class _MyAppState extends State<MyApp> {
 
   Future<void> _handleInitialUri() async {
     try {
-      final uri = await getInitialUri();
+      final uri = await _appLinks.getInitialLink();
       if (uri != null) _processUri(uri);
     } catch (e) {
       // ignore
@@ -107,7 +106,7 @@ class _MyAppState extends State<MyApp> {
             children: [
               Text('Estabelecimento: ${establishment.name}'),
               if (quantity != null) Text('Quantidade de pessoas: $quantity'),
-              if (wait != null) Text('Tempo m�dio de espera: $wait minutos'),
+              if (wait != null) Text('Tempo médio de espera: $wait minutos'),
             ],
           ),
           actions: [

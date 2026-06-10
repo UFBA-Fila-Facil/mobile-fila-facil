@@ -7,6 +7,6 @@
     O app buscará o estabelecimento pelo nome entre os estabelecimentos do usuário autenticado.
   -->
   <action intentName="actions.intent.OPEN_APP_FEATURE">
-    <fulfillment urlTemplate="https://fila-facil.app/updateQueue?establishmentName={establishmentName}&quantity={quantityPeople}&wait={averageWaitTime}" />
+    <fulfillment urlTemplate="https://fila-facil.app/updateQueue?establishmentName={establishmentName}&amp;quantity={quantityPeople}&amp;wait={averageWaitTime}" />
   </action>
 </actions>
