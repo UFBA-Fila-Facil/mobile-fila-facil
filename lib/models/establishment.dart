@@ -46,4 +46,26 @@ class Establishment {
       if (location != null) 'location': location,
     };
   }
+
+  Establishment copyWith({
+    String? id,
+    String? name,
+    String? address,
+    int? capacity,
+    String? serviceType,
+    String? adminId,
+    DateTime? createdAt,
+    GeoPoint? location,
+  }) {
+    return Establishment(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      address: address ?? this.address,
+      capacity: capacity ?? this.capacity,
+      serviceType: serviceType ?? this.serviceType,
+      adminId: adminId ?? this.adminId,
+      createdAt: createdAt ?? this.createdAt,
+      location: location ?? this.location,
+    );
+  }
 }

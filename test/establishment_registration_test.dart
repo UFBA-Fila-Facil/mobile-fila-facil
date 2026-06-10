@@ -5,11 +5,16 @@ import 'package:mocktail/mocktail.dart';
 import 'package:mobile_fila_facil/models/establishment.dart';
 import 'package:mobile_fila_facil/screens/establishment_registration_screen.dart';
 import 'package:mobile_fila_facil/services/establishment_service.dart';
+import 'package:mobile_fila_facil/services/queue_service.dart';
 
 class MockEstablishmentService extends Mock implements EstablishmentService {}
 
 class FakeEstablishment extends Fake implements Establishment {}
+
 class MockDocumentSnapshot extends Mock implements DocumentSnapshot<Map<String, dynamic>> {}
+
+class MockQueueService extends Mock implements QueueService {}
+
 void main() {
   setUpAll(() {
     registerFallbackValue(FakeEstablishment());
@@ -17,13 +22,15 @@ void main() {
 
   testWidgets('Establishment registration screen renders all fields and button', (WidgetTester tester) async {
     final service = MockEstablishmentService();
-    when(() => service.addEstablishment(any())).thenAnswer((_) async {});
+    final queueService = MockQueueService();
+    when(() => service.addEstablishment(any())).thenAnswer((_) async => 'created-id');
 
     await tester.pumpWidget(
       MaterialApp(
         home: EstablishmentRegistrationScreen(
           adminId: 'admin-1',
           establishmentService: service,
+          queueService: queueService,
         ),
       ),
     );
@@ -37,7 +44,8 @@ void main() {
 
   testWidgets('Salvar estabelecimento calls service when form is valid', (WidgetTester tester) async {
     final service = MockEstablishmentService();
-    when(() => service.addEstablishment(any())).thenAnswer((_) async {});
+    final queueService = MockQueueService();
+    when(() => service.addEstablishment(any())).thenAnswer((_) async => 'created-id');
 
     await tester.pumpWidget(
       MaterialApp(home: const Scaffold()),
@@ -47,6 +55,7 @@ void main() {
       builder: (_) => EstablishmentRegistrationScreen(
         adminId: 'admin-1',
         establishmentService: service,
+        queueService: queueService,
       ),
     ));
     await tester.pumpAndSettle();
@@ -64,10 +73,11 @@ void main() {
 
   testWidgets('Validation prevents saving when capacity is invalid', (WidgetTester tester) async {
     final service = MockEstablishmentService();
-    when(() => service.addEstablishment(any())).thenAnswer((_) async {});
+    final queueService = MockQueueService();
+    when(() => service.addEstablishment(any())).thenAnswer((_) async => 'created-id');
 
     await tester.pumpWidget(
-      MaterialApp(home: EstablishmentRegistrationScreen(adminId: 'admin-1', establishmentService: service)),
+      MaterialApp(home: EstablishmentRegistrationScreen(adminId: 'admin-1', establishmentService: service, queueService: queueService)),
     );
 
     await tester.enterText(find.byType(TextFormField).at(0), 'Mercado Fácil');

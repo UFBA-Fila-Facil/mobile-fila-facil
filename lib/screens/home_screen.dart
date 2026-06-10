@@ -2,18 +2,23 @@ import 'package:flutter/material.dart';
 
 import '../models/establishment.dart';
 import '../screens/establishment_registration_screen.dart';
+import '../screens/queue_registration_screen.dart';
 import '../services/auth_service.dart';
 import '../services/establishment_service.dart';
+import '../services/queue_service.dart';
 
 class HomeScreen extends StatelessWidget {
   final AuthService authService;
   final EstablishmentService establishmentService;
+  final QueueService queueService;
 
   HomeScreen({
     super.key,
     required this.authService,
     EstablishmentService? establishmentService,
-  }) : establishmentService = establishmentService ?? EstablishmentService();
+    QueueService? queueService,
+  })  : establishmentService = establishmentService ?? EstablishmentService(),
+        queueService = queueService ?? QueueService();
 
   @override
   Widget build(BuildContext context) {
@@ -122,12 +127,17 @@ class HomeScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 24),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    mainAxisAlignment: MainAxisAlignment.start,
                     children: [
                       const Text(
                         'Meus estabelecimentos',
                         style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
+                    ],
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    children: [
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF0CA79B),
@@ -148,7 +158,7 @@ class HomeScreen extends StatelessWidget {
                           }
                         },
                       ),
-                    ],
+                    ]
                   ),
                   const SizedBox(height: 16),
                   Expanded(
@@ -187,12 +197,22 @@ class HomeScreen extends StatelessWidget {
                               const SizedBox(height: 12),
                             ] else ...establishments.map((est) => _EstablishmentCard(
                                 establishment: est,
+                                queueService: queueService,
                                 onEdit: () {
                                   Navigator.of(context).push(
                                     MaterialPageRoute(
                                       builder: (_) => EstablishmentRegistrationScreen(
                                         adminId: user?.uid ?? '',
                                         establishmentService: establishmentService,
+                                        establishment: est,
+                                      ),
+                                    ),
+                                  );
+                                },
+                                onQueue: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => QueueRegistrationScreen(
                                         establishment: est,
                                       ),
                                     ),
@@ -269,14 +289,30 @@ class HomeScreen extends StatelessWidget {
 
 class _EstablishmentCard extends StatelessWidget {
   final Establishment establishment;
+  final QueueService queueService;
   final VoidCallback onEdit;
+  final VoidCallback onQueue;
   final VoidCallback onDelete;
 
   const _EstablishmentCard({
     required this.establishment,
+    required this.queueService,
     required this.onEdit,
+    required this.onQueue,
     required this.onDelete,
   });
+
+  Color _getQueueStatusColor(int quantity) {
+    if (quantity < 5) return const Color(0xFF4CAF50);
+    if (quantity <= 15) return const Color(0xFFFFC107);
+    return const Color(0xFFF44336);
+  }
+
+  String _getQueueStatusLabel(int quantity) {
+    if (quantity < 5) return 'Baixa';
+    if (quantity <= 15) return 'Média';
+    return 'Alta';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -294,56 +330,142 @@ class _EstablishmentCard extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            establishment.name,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            establishment.address,
-            style: const TextStyle(fontSize: 14, color: Colors.black54),
-          ),
-          const SizedBox(height: 12),
-          Row(
+      child: StreamBuilder(
+        stream: queueService.watchQueueForEstablishment(establishment.id),
+        builder: (context, snapshot) {
+          final queue = snapshot.data;
+          final statusColor = queue != null ? _getQueueStatusColor(queue.quantityPeople) : Colors.grey;
+          final statusLabel = queue != null ? _getQueueStatusLabel(queue.quantityPeople) : 'Sem dados';
+          final waitTime = queue?.averageWaitingTime ?? 0;
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _DetailChip(label: 'Capacidade', value: establishment.capacity.toString()),
-              const SizedBox(width: 8),
-              _DetailChip(label: 'Atendimento', value: establishment.serviceType),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              TextButton.icon(
-                onPressed: onEdit,
-                icon: const Icon(Icons.edit, size: 18),
-                label: const Text('Editar'),
-                style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xFF0CA79B),
-                  textStyle: const TextStyle(fontWeight: FontWeight.w600),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          establishment.name,
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          establishment.address,
+                          style: const TextStyle(fontSize: 14, color: Colors.black54),
+                        ),
+                        const SizedBox(height: 6),
+                        TextButton.icon(
+                          onPressed: onEdit,
+                          icon: const Icon(Icons.edit, size: 18),
+                          label: const Text('Editar'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: const Color(0xFF0CA79B),
+                            textStyle: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    children: [
+                      Container(
+                        width: 60,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: statusColor.withOpacity(0.2),
+                        ),
+                        child: Center(
+                          child: Container(
+                            width: 45,
+                            height: 45,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: statusColor,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        statusLabel,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: statusColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              SingleChildScrollView(
+                child: IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _DetailChip(label: 'Capacidade', value: establishment.capacity.toString()),
+                      const SizedBox(width: 8),
+                      _DetailChip(label: 'Atendimento', value: establishment.serviceType),
+                    ],
+                  ),
                 ),
               ),
-              const SizedBox(width: 8),
-              TextButton.icon(
-                onPressed: onDelete,
-                icon: const Icon(Icons.delete, size: 18),
-                label: const Text('Remover'),
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.redAccent,
-                  textStyle: const TextStyle(fontWeight: FontWeight.w600),
+              if (queue != null) ...[
+                const SizedBox(height: 12),
+                
+                SingleChildScrollView(
+                  child: IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _DetailChip(label: 'Pessoas na fila', value: queue.quantityPeople.toString()),
+                        const SizedBox(width: 8),
+                        _DetailChip(label: 'Tempo esperado', value: '${queue.averageWaitingTime} min'),
+                      ],
+                    ),
+                  ),
                 ),
+              ],
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  TextButton.icon(
+                    onPressed: onQueue,
+                    icon: const Icon(Icons.queue, size: 18),
+                    label: const Text('Fila'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFF0CA79B),
+                      textStyle: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  TextButton.icon(
+                    onPressed: onDelete,
+                    icon: const Icon(Icons.delete, size: 18),
+                    label: const Text('Remover'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.redAccent,
+                      textStyle: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
               ),
             ],
-          ),
-        ],
+          );
+        },
       ),
     );
   }
 }
+
 
 class _DetailChip extends StatelessWidget {
   final String label;

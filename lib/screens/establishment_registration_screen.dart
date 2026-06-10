@@ -6,17 +6,21 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../models/establishment.dart';
+import '../screens/queue_registration_screen.dart';
 import '../services/establishment_service.dart';
+import '../services/queue_service.dart';
 
 class EstablishmentRegistrationScreen extends StatefulWidget {
   final String adminId;
   final EstablishmentService establishmentService;
+  final QueueService? queueService;
   final Establishment? establishment;
 
   const EstablishmentRegistrationScreen({
     super.key,
     required this.adminId,
     required this.establishmentService,
+    this.queueService,
     this.establishment,
   });
 
@@ -87,12 +91,20 @@ class _EstablishmentRegistrationScreenState extends State<EstablishmentRegistrat
 
       if (_isEditing) {
         await widget.establishmentService.updateEstablishment(establishment);
+        if (mounted) Navigator.of(context).pop();
       } else {
-        await widget.establishmentService.addEstablishment(establishment);
-      }
-
-      if (mounted) {
-        Navigator.of(context).pop();
+        final createdId = await widget.establishmentService.addEstablishment(establishment);
+        final savedEstablishment = establishment.copyWith(id: createdId);
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => QueueRegistrationScreen(
+                establishment: savedEstablishment,
+                queueService: widget.queueService,
+              ),
+            ),
+          );
+        }
       }
     } catch (error) {
       if (mounted) {

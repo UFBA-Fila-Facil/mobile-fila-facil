@@ -24,8 +24,9 @@ class EstablishmentService {
         });
   }
 
-  Future<void> addEstablishment(Establishment establishment) async {
-    await _collection.add(establishment);
+  Future<String> addEstablishment(Establishment establishment) async {
+    final docRef = await _collection.add(establishment);
+    return docRef.id;
   }
 
   Future<void> updateEstablishment(Establishment establishment) async {
