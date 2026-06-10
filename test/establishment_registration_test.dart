@@ -36,7 +36,9 @@ void main() {
     );
 
     expect(find.text('Nome do estabelecimento'), findsOneWidget);
+    expect(find.text('CEP'), findsOneWidget);
     expect(find.text('Endereço'), findsOneWidget);
+    expect(find.text('Número e Complemento'), findsOneWidget);
     expect(find.text('Capacidade máxima da fila'), findsOneWidget);
     expect(find.text('Tipo de atendimento'), findsOneWidget);
     expect(find.widgetWithText(ElevatedButton, 'Salvar estabelecimento'), findsOneWidget);
@@ -60,10 +62,15 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextFormField).at(0), 'Mercado Fácil');
-    await tester.enterText(find.byType(TextFormField).at(1), 'Rua Central, 100');
-    await tester.enterText(find.byType(TextFormField).at(2), '25');
-    await tester.enterText(find.byType(TextFormField).at(3), 'Caixas');
+    await tester.enterText(find.widgetWithText(TextFormField, 'Nome do estabelecimento'), 'Mercado Fácil');
+    await tester.enterText(find.widgetWithText(TextFormField, 'CEP'), '01310900');
+    await tester.enterText(find.widgetWithText(TextFormField, 'Número e Complemento'), '100');
+    await tester.enterText(find.widgetWithText(TextFormField, 'Capacidade máxima da fila'), '25');
+    await tester.enterText(find.widgetWithText(TextFormField, 'Tipo de atendimento'), 'Caixas');
+
+    final addressController = tester.widget<TextFormField>(find.widgetWithText(TextFormField, 'Endereço')).controller!;
+    addressController.text = 'Rua Central, 100';
+    await tester.pump();
 
     await tester.tap(find.widgetWithText(ElevatedButton, 'Salvar estabelecimento'));
     await tester.pumpAndSettle();
@@ -80,10 +87,15 @@ void main() {
       MaterialApp(home: EstablishmentRegistrationScreen(adminId: 'admin-1', establishmentService: service, queueService: queueService)),
     );
 
-    await tester.enterText(find.byType(TextFormField).at(0), 'Mercado Fácil');
-    await tester.enterText(find.byType(TextFormField).at(1), 'Rua Central, 100');
-    await tester.enterText(find.byType(TextFormField).at(2), '-5');
-    await tester.enterText(find.byType(TextFormField).at(3), 'Caixas');
+    await tester.enterText(find.widgetWithText(TextFormField, 'Nome do estabelecimento'), 'Mercado Fácil');
+    await tester.enterText(find.widgetWithText(TextFormField, 'CEP'), '01310900');
+    await tester.enterText(find.widgetWithText(TextFormField, 'Número e Complemento'), '-5');
+    await tester.enterText(find.widgetWithText(TextFormField, 'Capacidade máxima da fila'), '-5');
+    await tester.enterText(find.widgetWithText(TextFormField, 'Tipo de atendimento'), 'Caixas');
+
+    final addressController = tester.widget<TextFormField>(find.widgetWithText(TextFormField, 'Endereço')).controller!;
+    addressController.text = 'Rua Central, 100';
+    await tester.pump();
 
     await tester.tap(find.widgetWithText(ElevatedButton, 'Salvar estabelecimento'));
     await tester.pump();
@@ -97,6 +109,7 @@ void main() {
     final establishment = Establishment(
       id: 'id-1',
       name: 'Mercado Fácil',
+      cep: '01001000',
       address: 'Rua Central, 100',
       capacity: 25,
       serviceType: 'Caixas',
@@ -124,6 +137,7 @@ void main() {
     final establishment = Establishment(
       id: 'id-1',
       name: 'Mercado',
+      cep: '01001000',
       address: 'Rua A, 123',
       capacity: 15,
       serviceType: 'Caixas',
@@ -150,6 +164,7 @@ void main() {
     when(() => doc.id).thenReturn('id-1');
     when(() => doc.data()).thenReturn({
       'name': 'Mercado',
+      'cep': '01001000',
       'address': 'Rua A, 123',
       'capacity': 15,
       'serviceType': 'Caixas',

@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
 import '../models/establishment.dart';
 import '../screens/queue_registration_screen.dart';
@@ -31,12 +32,15 @@ class EstablishmentRegistrationScreen extends StatefulWidget {
 class _EstablishmentRegistrationScreenState extends State<EstablishmentRegistrationScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
-  final _addressController = TextEditingController();
+  final _cepController = TextEditingController();
+  final _selectedAddressController = TextEditingController();
+  final _addressDetailsController = TextEditingController();
   final _capacityController = TextEditingController();
   final _serviceTypeController = TextEditingController();
-  final _addressFocusNode = FocusNode();
-  final List<Map<String, String>> _addressSuggestions = [];
+  final _cepFocusNode = FocusNode();
+  final List<Map<String, String>> _cepSuggestions = [];
 
+  String _selectedAddress = '';
   GeoPoint? _selectedLocation;
   bool _isLoading = false;
   Timer? _debounce;
@@ -47,14 +51,23 @@ class _EstablishmentRegistrationScreenState extends State<EstablishmentRegistrat
     final existing = widget.establishment;
     if (existing != null) {
       _nameController.text = existing.name;
-      _addressController.text = existing.address;
+      _cepController.text = existing.cep;
+      // Dividir endereço em endereço selecionado e detalhes do usuário
+      final parts = existing.address.split(' - ');
+      if (parts.length >= 2) {
+        _selectedAddress = parts[0];
+        _addressDetailsController.text = parts.sublist(1).join(' - ');
+      } else {
+        _selectedAddress = existing.address;
+      }
+      _selectedAddressController.text = _selectedAddress;
       _capacityController.text = existing.capacity.toString();
       _serviceTypeController.text = existing.serviceType;
       _selectedLocation = existing.location;
     }
-    _addressFocusNode.addListener(() {
-      if (!_addressFocusNode.hasFocus) {
-        setState(() => _addressSuggestions.clear());
+    _cepFocusNode.addListener(() {
+      if (!_cepFocusNode.hasFocus) {
+        setState(() => _cepSuggestions.clear());
       }
     });
   }
@@ -62,9 +75,11 @@ class _EstablishmentRegistrationScreenState extends State<EstablishmentRegistrat
   @override
   void dispose() {
     _debounce?.cancel();
-    _addressFocusNode.dispose();
+    _cepFocusNode.dispose();
     _nameController.dispose();
-    _addressController.dispose();
+    _cepController.dispose();
+    _selectedAddressController.dispose();
+    _addressDetailsController.dispose();
     _capacityController.dispose();
     _serviceTypeController.dispose();
     super.dispose();
@@ -74,14 +89,26 @@ class _EstablishmentRegistrationScreenState extends State<EstablishmentRegistrat
 
   Future<void> _saveEstablishment() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_selectedAddressController.text.trim().isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Selecione o endereço encontrado pelo CEP antes de salvar.')),
+        );
+      }
+      return;
+    }
 
     setState(() => _isLoading = true);
 
     try {
+      // Combinar endereço resultante da busca por CEP com o complemento digitado pelo usuário
+      final fullAddress = '${_selectedAddressController.text.trim()} - ${_addressDetailsController.text.trim()}';
+      
       final establishment = Establishment(
         id: widget.establishment?.id ?? '',
         name: _nameController.text.trim(),
-        address: _addressController.text.trim(),
+        cep: _cepController.text.trim(),
+        address: fullAddress,
         capacity: int.parse(_capacityController.text.trim()),
         serviceType: _serviceTypeController.text.trim(),
         adminId: widget.establishment?.adminId ?? widget.adminId,
@@ -119,83 +146,149 @@ class _EstablishmentRegistrationScreenState extends State<EstablishmentRegistrat
     }
   }
 
-  void _onAddressChanged(String value) {
+  void _onCepChanged(String value) {
     _selectedLocation = null;
     _debounce?.cancel();
-    if (value.trim().isEmpty) {
-      setState(() => _addressSuggestions.clear());
+    // Remover formatação anterior se houver
+    final cleanCep = value.replaceAll(RegExp(r'\D'), '');
+    if (cleanCep.length < 8) {
+      setState(() => _cepSuggestions.clear());
       return;
     }
     _debounce = Timer(const Duration(milliseconds: 300), () {
-      _searchAddressSuggestions(value.trim());
+      _searchCepSuggestions(cleanCep);
     });
   }
 
-  Future<void> _searchAddressSuggestions(String input) async {
-    if (input.isEmpty) {
+  Future<void> _searchCepSuggestions(String cep) async {
+    if (cep.isEmpty || cep.length != 8) {
       return;
     }
 
     try {
       final uri = Uri.https(
-        'nominatim.openstreetmap.org',
-        '/search',
-        {
-          'q': input,
-          'format': 'json',
-          'addressdetails': '1',
-          'limit': '5',
-          'countrycodes': 'br',
-        },
+        'brasilapi.com.br',
+        '/api/cep/v2/$cep',
       );
 
-      final client = HttpClient();
-      final request = await client.getUrl(uri);
-      request.headers.set('User-Agent', 'mobile-fila-facil-app/1.0');
-      final response = await request.close();
-      final payload = await response.transform(utf8.decoder).join();
-      client.close();
+      final client = http.Client();
+      http.Response response = http.Response('', 500);
+      String payload = '';
+
+      try {
+        response = await client.get(
+          uri,
+          headers: {
+            'User-Agent': 'mobile-fila-facil-app/1.0',
+          },
+        );
+        payload = response.body;
+      } catch (e) {
+        print('Erro na requisição BrasilAPI: $e');
+      } finally {
+        client.close();
+      }
 
       if (response.statusCode != 200) {
         return;
       }
 
-      final results = jsonDecode(payload) as List<dynamic>?;
-      if (results == null) return;
+      final data = jsonDecode(payload) as Map<String, dynamic>?;
+      if (data == null) return;
+
+      final street = data['street'] as String? ?? '';
+      final neighborhood = data['neighborhood'] as String? ?? '';
+      final city = data['city'] as String? ?? '';
+      final state = data['state'] as String? ?? '';
+      final formattedAddress = [street, neighborhood, city, state]
+          .where((part) => part.isNotEmpty)
+          .join(', ');
+
+      if (formattedAddress.isEmpty) {
+        return;
+      }
 
       setState(() {
-        _addressSuggestions
+        _cepSuggestions
           ..clear()
-          ..addAll(results.map((result) {
-            final data = result as Map<String, dynamic>;
-            return {
-              'description': data['display_name'] as String? ?? '',
-              'lat': data['lat'] as String? ?? '',
-              'lon': data['lon'] as String? ?? '',
-            };
-          }).where((item) => item['lat']!.isNotEmpty && item['lon']!.isNotEmpty));
+          ..add({
+            'description': formattedAddress,
+          });
+        _selectedAddress = '';
+        _selectedLocation = null;
+        _selectCepSuggestion(_cepSuggestions.first);
       });
     } catch (_) {
-      // Ignorar falhas silenciosas e manter a experiência de usuário.
+      // Ignorar falhas silenciosas
     }
   }
 
-  Future<void> _selectAddressSuggestion(Map<String, String> suggestion) async {
+  Future<void> _selectCepSuggestion(Map<String, String> suggestion) async {
     final description = suggestion['description'];
-    final latString = suggestion['lat'];
-    final lonString = suggestion['lon'];
-    if (description == null || latString == null || lonString == null) return;
+    if (description == null || description.isEmpty) return;
+    // DEBUG: log selection
+    // ignore: avoid_print
+    print('CEP suggestion tapped: $description');
 
-    final lat = double.tryParse(latString);
-    final lon = double.tryParse(lonString);
-    if (lat == null || lon == null) return;
+    final location = await _geocodeAddress(description);
+    if (location == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Não foi possível localizar o endereço.')),        
+        );
+      }
+      return;
+    }
 
     setState(() {
-      _addressController.text = description;
-      _selectedLocation = GeoPoint(lat, lon);
-      _addressSuggestions.clear();
+      _selectedAddress = description;
+      _selectedAddressController.text = description;
+      _selectedLocation = location;
+      _cepSuggestions.clear();
     });
     FocusScope.of(context).unfocus();
+  }
+
+  Future<GeoPoint?> _geocodeAddress(String address) async {
+    try {
+      final uri = Uri.https(
+        'nominatim.openstreetmap.org',
+        '/search',
+        {
+          'q': address,
+          'format': 'json',
+          'limit': '1',
+          'addressdetails': '1',
+          'countrycodes': 'br',
+        },
+      );
+
+      final client = http.Client();
+      final response = await client.get(
+        uri,
+        headers: {
+          'User-Agent': 'mobile-fila-facil-app/1.0',
+        },
+      );
+      client.close();
+
+      if (response.statusCode != 200) {
+        return null;
+      }
+
+      final results = jsonDecode(response.body) as List<dynamic>?;
+      if (results == null || results.isEmpty) return null;
+
+      final data = results.first as Map<String, dynamic>;
+      final lat = double.tryParse(data['lat']?.toString() ?? '');
+      final lon = double.tryParse(data['lon']?.toString() ?? '');
+      if (lat == null || lon == null) return null;
+
+      return GeoPoint(lat, lon);
+    } catch (e) {
+      print('Erro no geocoding: $e');
+      return null;
+    }
   }
 
   InputDecoration _decoration(String label, IconData icon) {
@@ -238,40 +331,61 @@ class _EstablishmentRegistrationScreenState extends State<EstablishmentRegistrat
               ),
               const SizedBox(height: 16),
               TextFormField(
-                controller: _addressController,
-                focusNode: _addressFocusNode,
-                decoration: _decoration('Endereço', Icons.location_on),
-                onChanged: _onAddressChanged,
+                controller: _cepController,
+                focusNode: _cepFocusNode,
+                decoration: _decoration('CEP', Icons.mail),
+                keyboardType: TextInputType.number,
+                onChanged: _onCepChanged,
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return 'Informe o endereço.';
+                    return 'Informe o CEP.';
+                  }
+                  final cleanCep = value.replaceAll(RegExp(r'\D'), '');
+                  if (cleanCep.length != 8) {
+                    return 'CEP deve ter 8 dígitos.';
                   }
                   return null;
                 },
               ),
-              if (_addressSuggestions.isNotEmpty) ...[
+              if (_cepSuggestions.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Container(
                   decoration: BoxDecoration(
-                    color: Colors.white,
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(color: Colors.grey.shade300),
                   ),
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _addressSuggestions.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
-                    itemBuilder: (context, index) {
-                      final suggestion = _addressSuggestions[index];
-                      return ListTile(
-                        title: Text(suggestion['description'] ?? ''),
-                        onTap: () => _selectAddressSuggestion(suggestion),
-                      );
-                    },
+                  child: Material(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    clipBehavior: Clip.hardEdge,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        for (int i = 0; i < _cepSuggestions.length; i++) ...[
+                          InkWell(
+                            onTap: () => _selectCepSuggestion(_cepSuggestions[i]),
+                            child: Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                              child: Text(
+                                _cepSuggestions[i]['description'] ?? '',
+                                style: const TextStyle(fontSize: 16),
+                              ),
+                            ),
+                          ),
+                          if (i < _cepSuggestions.length - 1) const Divider(height: 1),
+                        ],
+                      ],
+                    ),
                   ),
                 ),
               ],
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _selectedAddressController,
+                decoration: _decoration('Endereço', Icons.location_on),
+                enabled: false,
+              ),
               if (_selectedLocation != null) ...[
                 const SizedBox(height: 12),
                 Text(
@@ -279,6 +393,17 @@ class _EstablishmentRegistrationScreenState extends State<EstablishmentRegistrat
                   style: TextStyle(color: Colors.grey[700], fontSize: 14),
                 ),
               ],
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _addressDetailsController,
+                decoration: _decoration('Número e Complemento', Icons.home),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Informe o número e/ou complemento.';
+                  }
+                  return null;
+                },
+              ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _capacityController,

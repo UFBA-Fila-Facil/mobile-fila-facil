@@ -33,6 +33,7 @@ void main() {
     final establishment = Establishment(
       id: 'est-1',
       name: 'Mercado',
+      cep: '01001000',
       address: 'Rua A',
       capacity: 25,
       serviceType: 'Caixas',
@@ -77,6 +78,7 @@ void main() {
     final establishment = Establishment(
       id: 'est-2',
       name: 'Supermercado',
+      cep: '01001001',
       address: 'Rua B',
       capacity: 50,
       serviceType: 'Caixas',
@@ -121,6 +123,7 @@ void main() {
     final establishment = Establishment(
       id: 'est-3',
       name: 'Shopping',
+      cep: '01001002',
       address: 'Rua C',
       capacity: 100,
       serviceType: 'Atendimento',

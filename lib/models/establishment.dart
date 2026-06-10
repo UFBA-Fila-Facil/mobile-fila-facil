@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class Establishment {
   final String id;
   final String name;
+  final String cep;
   final String address;
   final int capacity;
   final String serviceType;
@@ -13,6 +14,7 @@ class Establishment {
   Establishment({
     required this.id,
     required this.name,
+    required this.cep,
     required this.address,
     required this.capacity,
     required this.serviceType,
@@ -26,6 +28,7 @@ class Establishment {
     return Establishment(
       id: doc.id,
       name: data['name'] as String? ?? '',
+      cep: data['cep'] as String? ?? '',
       address: data['address'] as String? ?? '',
       capacity: (data['capacity'] as num?)?.toInt() ?? 0,
       serviceType: data['serviceType'] as String? ?? '',
@@ -38,6 +41,7 @@ class Establishment {
   Map<String, Object?> toMap() {
     return {
       'name': name,
+      'cep': cep,
       'address': address,
       'capacity': capacity,
       'serviceType': serviceType,
@@ -50,6 +54,7 @@ class Establishment {
   Establishment copyWith({
     String? id,
     String? name,
+    String? cep,
     String? address,
     int? capacity,
     String? serviceType,
@@ -60,6 +65,7 @@ class Establishment {
     return Establishment(
       id: id ?? this.id,
       name: name ?? this.name,
+      cep: cep ?? this.cep,
       address: address ?? this.address,
       capacity: capacity ?? this.capacity,
       serviceType: serviceType ?? this.serviceType,
