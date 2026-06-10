@@ -77,7 +77,7 @@ class _LoginScreenState extends State<LoginScreen> {
       body: Stack(
         children: [
           Container(
-            height: size.height * 0.50,
+            height: size.height * 0.45,
             width: size.width,
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -86,7 +86,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 end: Alignment.bottomRight,
               ),
             ),
-            padding: const EdgeInsets.only(left: 24, top: 64, right: 24),
+            padding: const EdgeInsets.only(left: 24, top: 50, right: 24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: const [
@@ -114,7 +114,7 @@ class _LoginScreenState extends State<LoginScreen> {
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Container(
-                margin: EdgeInsets.only(top: size.height * 0.22, bottom: 24),
+                margin: EdgeInsets.only(top: size.height * 0.15, bottom: 24),
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
                   color: Colors.white,
