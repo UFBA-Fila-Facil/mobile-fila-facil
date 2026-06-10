@@ -8,6 +8,7 @@ class Establishment {
   final String serviceType;
   final String adminId;
   final DateTime createdAt;
+  final GeoPoint? location;
 
   Establishment({
     required this.id,
@@ -17,6 +18,7 @@ class Establishment {
     required this.serviceType,
     required this.adminId,
     required this.createdAt,
+    this.location,
   });
 
   factory Establishment.fromDocument(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -29,6 +31,7 @@ class Establishment {
       serviceType: data['serviceType'] as String? ?? '',
       adminId: data['adminId'] as String? ?? '',
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      location: data['location'] as GeoPoint?,
     );
   }
 
@@ -40,6 +43,7 @@ class Establishment {
       'serviceType': serviceType,
       'adminId': adminId,
       'createdAt': Timestamp.fromDate(createdAt),
+      if (location != null) 'location': location,
     };
   }
 }

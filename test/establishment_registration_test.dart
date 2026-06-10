@@ -9,7 +9,7 @@ import 'package:mobile_fila_facil/services/establishment_service.dart';
 class MockEstablishmentService extends Mock implements EstablishmentService {}
 
 class FakeEstablishment extends Fake implements Establishment {}
-
+class MockDocumentSnapshot extends Mock implements DocumentSnapshot<Map<String, dynamic>> {}
 void main() {
   setUpAll(() {
     registerFallbackValue(FakeEstablishment());
@@ -82,6 +82,33 @@ void main() {
     verifyNever(() => service.addEstablishment(any()));
   });
 
+  testWidgets('Existing establishment with location displays latitude and longitude', (WidgetTester tester) async {
+    final service = MockEstablishmentService();
+    final establishment = Establishment(
+      id: 'id-1',
+      name: 'Mercado Fácil',
+      address: 'Rua Central, 100',
+      capacity: 25,
+      serviceType: 'Caixas',
+      adminId: 'admin-1',
+      createdAt: DateTime.now(),
+      location: const GeoPoint(-23.550520, -46.633308),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: EstablishmentRegistrationScreen(
+          adminId: 'admin-1',
+          establishmentService: service,
+          establishment: establishment,
+        ),
+      ),
+    );
+
+    expect(find.textContaining('Latitude:'), findsOneWidget);
+    expect(find.textContaining('Longitude:'), findsOneWidget);
+  });
+
   test('Establishment model converts to map correctly', () {
     final createdAt = DateTime.utc(2026, 6, 4, 12, 0, 0);
     final establishment = Establishment(
@@ -92,6 +119,7 @@ void main() {
       serviceType: 'Caixas',
       adminId: 'admin-1',
       createdAt: createdAt,
+      location: const GeoPoint(-23.550520, -46.633308),
     );
 
     final map = establishment.toMap();
@@ -102,5 +130,34 @@ void main() {
     expect(map['serviceType'], 'Caixas');
     expect(map['adminId'], 'admin-1');
     expect(map['createdAt'], isA<Timestamp>());
+    expect(map['location'], isA<GeoPoint>());
+    expect((map['location'] as GeoPoint).latitude, -23.550520);
+    expect((map['location'] as GeoPoint).longitude, -46.633308);
+  });
+
+  test('Establishment model creates instance from Firestore document with location', () {
+    final doc = MockDocumentSnapshot();
+    when(() => doc.id).thenReturn('id-1');
+    when(() => doc.data()).thenReturn({
+      'name': 'Mercado',
+      'address': 'Rua A, 123',
+      'capacity': 15,
+      'serviceType': 'Caixas',
+      'adminId': 'admin-1',
+      'createdAt': Timestamp.fromDate(DateTime.utc(2026, 6, 4, 12, 0, 0)),
+      'location': const GeoPoint(-23.550520, -46.633308),
+    });
+
+    final establishment = Establishment.fromDocument(doc);
+
+    expect(establishment.id, 'id-1');
+    expect(establishment.name, 'Mercado');
+    expect(establishment.address, 'Rua A, 123');
+    expect(establishment.capacity, 15);
+    expect(establishment.serviceType, 'Caixas');
+    expect(establishment.adminId, 'admin-1');
+    expect(establishment.location, isA<GeoPoint>());
+    expect(establishment.location!.latitude, -23.550520);
+    expect(establishment.location!.longitude, -46.633308);
   });
 }

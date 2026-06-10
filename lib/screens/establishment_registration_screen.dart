@@ -1,3 +1,8 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../models/establishment.dart';
@@ -25,7 +30,12 @@ class _EstablishmentRegistrationScreenState extends State<EstablishmentRegistrat
   final _addressController = TextEditingController();
   final _capacityController = TextEditingController();
   final _serviceTypeController = TextEditingController();
+  final _addressFocusNode = FocusNode();
+  final List<Map<String, String>> _addressSuggestions = [];
+
+  GeoPoint? _selectedLocation;
   bool _isLoading = false;
+  Timer? _debounce;
 
   @override
   void initState() {
@@ -36,7 +46,24 @@ class _EstablishmentRegistrationScreenState extends State<EstablishmentRegistrat
       _addressController.text = existing.address;
       _capacityController.text = existing.capacity.toString();
       _serviceTypeController.text = existing.serviceType;
+      _selectedLocation = existing.location;
     }
+    _addressFocusNode.addListener(() {
+      if (!_addressFocusNode.hasFocus) {
+        setState(() => _addressSuggestions.clear());
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _addressFocusNode.dispose();
+    _nameController.dispose();
+    _addressController.dispose();
+    _capacityController.dispose();
+    _serviceTypeController.dispose();
+    super.dispose();
   }
 
   bool get _isEditing => widget.establishment != null;
@@ -55,6 +82,7 @@ class _EstablishmentRegistrationScreenState extends State<EstablishmentRegistrat
         serviceType: _serviceTypeController.text.trim(),
         adminId: widget.establishment?.adminId ?? widget.adminId,
         createdAt: widget.establishment?.createdAt ?? DateTime.now(),
+        location: _selectedLocation ?? widget.establishment?.location,
       );
 
       if (_isEditing) {
@@ -77,6 +105,85 @@ class _EstablishmentRegistrationScreenState extends State<EstablishmentRegistrat
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  void _onAddressChanged(String value) {
+    _selectedLocation = null;
+    _debounce?.cancel();
+    if (value.trim().isEmpty) {
+      setState(() => _addressSuggestions.clear());
+      return;
+    }
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      _searchAddressSuggestions(value.trim());
+    });
+  }
+
+  Future<void> _searchAddressSuggestions(String input) async {
+    if (input.isEmpty) {
+      return;
+    }
+
+    try {
+      final uri = Uri.https(
+        'nominatim.openstreetmap.org',
+        '/search',
+        {
+          'q': input,
+          'format': 'json',
+          'addressdetails': '1',
+          'limit': '5',
+          'countrycodes': 'br',
+        },
+      );
+
+      final client = HttpClient();
+      final request = await client.getUrl(uri);
+      request.headers.set('User-Agent', 'mobile-fila-facil-app/1.0');
+      final response = await request.close();
+      final payload = await response.transform(utf8.decoder).join();
+      client.close();
+
+      if (response.statusCode != 200) {
+        return;
+      }
+
+      final results = jsonDecode(payload) as List<dynamic>?;
+      if (results == null) return;
+
+      setState(() {
+        _addressSuggestions
+          ..clear()
+          ..addAll(results.map((result) {
+            final data = result as Map<String, dynamic>;
+            return {
+              'description': data['display_name'] as String? ?? '',
+              'lat': data['lat'] as String? ?? '',
+              'lon': data['lon'] as String? ?? '',
+            };
+          }).where((item) => item['lat']!.isNotEmpty && item['lon']!.isNotEmpty));
+      });
+    } catch (_) {
+      // Ignorar falhas silenciosas e manter a experiência de usuário.
+    }
+  }
+
+  Future<void> _selectAddressSuggestion(Map<String, String> suggestion) async {
+    final description = suggestion['description'];
+    final latString = suggestion['lat'];
+    final lonString = suggestion['lon'];
+    if (description == null || latString == null || lonString == null) return;
+
+    final lat = double.tryParse(latString);
+    final lon = double.tryParse(lonString);
+    if (lat == null || lon == null) return;
+
+    setState(() {
+      _addressController.text = description;
+      _selectedLocation = GeoPoint(lat, lon);
+      _addressSuggestions.clear();
+    });
+    FocusScope.of(context).unfocus();
   }
 
   InputDecoration _decoration(String label, IconData icon) {
@@ -120,7 +227,9 @@ class _EstablishmentRegistrationScreenState extends State<EstablishmentRegistrat
               const SizedBox(height: 16),
               TextFormField(
                 controller: _addressController,
+                focusNode: _addressFocusNode,
                 decoration: _decoration('Endereço', Icons.location_on),
+                onChanged: _onAddressChanged,
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
                     return 'Informe o endereço.';
@@ -128,6 +237,36 @@ class _EstablishmentRegistrationScreenState extends State<EstablishmentRegistrat
                   return null;
                 },
               ),
+              if (_addressSuggestions.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _addressSuggestions.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final suggestion = _addressSuggestions[index];
+                      return ListTile(
+                        title: Text(suggestion['description'] ?? ''),
+                        onTap: () => _selectAddressSuggestion(suggestion),
+                      );
+                    },
+                  ),
+                ),
+              ],
+              if (_selectedLocation != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  'Latitude: ${_selectedLocation!.latitude.toStringAsFixed(6)}, Longitude: ${_selectedLocation!.longitude.toStringAsFixed(6)}',
+                  style: TextStyle(color: Colors.grey[700], fontSize: 14),
+                ),
+              ],
               const SizedBox(height: 16),
               TextFormField(
                 controller: _capacityController,
