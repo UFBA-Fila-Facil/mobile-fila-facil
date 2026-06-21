@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 
 import 'firebase_options.dart';
 import 'screens/forgot_password_screen.dart';
-import 'screens/home_screen.dart';
+import 'screens/main_shell.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'services/auth_service.dart';
@@ -105,7 +105,7 @@ class AuthGate extends StatelessWidget {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(body: Center(child: CircularProgressIndicator()));
         }
-        if (snapshot.hasData) return HomeScreen(authService: authService);
+        if (snapshot.hasData) return MainShell(authService: authService);
         return LoginScreen(authService: authService);
       },
     );

@@ -5,8 +5,6 @@ import 'package:flutter/material.dart';
 import '../models/establishment.dart';
 import '../models/queue_model.dart';
 import '../models/user_queue_entry.dart';
-import '../screens/establishment_registration_screen.dart';
-import '../screens/queue_registration_screen.dart';
 import '../services/auth_service.dart';
 import '../services/establishment_service.dart';
 import '../services/nearby_establishments_service.dart';
@@ -161,9 +159,7 @@ class _HomeScreenState extends State<HomeScreen> {
           await showDialog(
             context: context,
             builder: (ctx) => Dialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(28, 32, 28, 24),
                 child: Column(
@@ -357,14 +353,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 20),
                 Row(
                   children: [
-                    
                     _StatusBadge(
                       label: 'Posição',
                       value: '${entry.position}º',
                       backgroundColor: const Color.fromRGBO(12, 167, 155, 0.12),
                       labelColor: const Color(0xFF0CA79B),
                       valueColor: const Color(0xFF0CA79B),
-                    )
+                    ),
                   ],
                 ),
                 const SizedBox(height: 20),
@@ -391,7 +386,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: () => _servedQueue(context, entry.id, establishment?.name ?? 'este estabelecimento'),
+                    onPressed: () => _servedQueue(context, entry.id,
+                        establishment?.name ?? 'este estabelecimento'),
                     icon: const Icon(Icons.check_circle_outline),
                     label: const Text('Fui atendido'),
                     style: ElevatedButton.styleFrom(
@@ -505,7 +501,6 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Cabeçalho fixo
                 Padding(
                   padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
                   child: Column(
@@ -537,7 +532,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                 ),
-                // Conteúdo rolável
                 Expanded(
                   child: SingleChildScrollView(
                     physics: const BouncingScrollPhysics(),
@@ -547,7 +541,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         Padding(
                           padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
                           child: StreamBuilder<UserQueueEntry?>(
-                            stream: widget.queueService.watchUserActiveQueue(user?.uid ?? ''),
+                            stream: widget.queueService
+                                .watchUserActiveQueue(user?.uid ?? ''),
                             builder: (_, queueSnapshot) {
                               final activeEntry = queueSnapshot.data;
                               return Container(
@@ -574,234 +569,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         const SizedBox(height: 24),
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
                           child: _buildNearbySection(context, user?.uid ?? ''),
-                        ),
-                        const SizedBox(height: 24),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 24),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Meus estabelecimentos',
-                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                              ),
-                              const SizedBox(height: 8),
-                              if (user != null)
-                                ElevatedButton.icon(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF0CA79B),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
-                                  ),
-                                  icon: const Icon(Icons.add),
-                                  label: const Text('Cadastrar'),
-                                  onPressed: () {
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (_) => EstablishmentRegistrationScreen(
-                                          adminId: user.uid,
-                                          establishmentService: widget.establishmentService,
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              const SizedBox(height: 16),
-                              StreamBuilder<List<Establishment>>(
-                                stream: widget.establishmentService
-                                    .watchUserEstablishments(user?.uid ?? ''),
-                                builder: (context, snapshot) {
-                                  if (snapshot.hasError) {
-                                    return Padding(
-                                      padding: const EdgeInsets.symmetric(vertical: 12),
-                                      child: Text(
-                                        'Erro ao carregar estabelecimentos: ${snapshot.error}',
-                                        style: const TextStyle(color: Colors.redAccent),
-                                      ),
-                                    );
-                                  }
-
-                                  if (snapshot.connectionState == ConnectionState.waiting) {
-                                    return const Center(child: CircularProgressIndicator());
-                                  }
-
-                                  final establishments = snapshot.data ?? [];
-
-                                  return Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      if (establishments.isEmpty)
-                                        const Padding(
-                                          padding: EdgeInsets.symmetric(vertical: 8),
-                                          child: Text(
-                                            'Nenhum estabelecimento cadastrado ainda.',
-                                            style: TextStyle(fontSize: 16, color: Colors.black54),
-                                          ),
-                                        )
-                                      else
-                                        ...establishments.map(
-                                          (est) => _EstablishmentCard(
-                                            establishment: est,
-                                            queueService: widget.queueService,
-                                            onServed: () async {
-                                              final confirmed = await showDialog<bool>(
-                                                context: context,
-                                                builder: (ctx) => AlertDialog(
-                                                  title: const Text('+1 cliente atendido'),
-                                                  content: const Text(
-                                                      'Confirmar que um cliente foi atendido? O próximo da fila será chamado.'),
-                                                  actions: [
-                                                    TextButton(
-                                                      onPressed: () =>
-                                                          Navigator.of(ctx).pop(false),
-                                                      child: const Text('Cancelar'),
-                                                    ),
-                                                    TextButton(
-                                                      onPressed: () =>
-                                                          Navigator.of(ctx).pop(true),
-                                                      style: TextButton.styleFrom(
-                                                        foregroundColor:
-                                                            const Color(0xFF0CA79B),
-                                                      ),
-                                                      child: const Text('Confirmar'),
-                                                    ),
-                                                  ],
-                                                ),
-                                              );
-                                              if (confirmed == true) {
-                                                try {
-                                                  await widget.queueService
-                                                      .serveNextCustomer(est.id);
-                                                } catch (e) {
-                                                  if (context.mounted) {
-                                                    ScaffoldMessenger.of(context)
-                                                        .showSnackBar(SnackBar(
-                                                      content: Text('Erro: $e'),
-                                                    ));
-                                                  }
-                                                }
-                                              }
-                                            },
-                                            onEdit: () {
-                                              Navigator.of(context).push(
-                                                MaterialPageRoute(
-                                                  builder: (_) =>
-                                                      EstablishmentRegistrationScreen(
-                                                    adminId: user?.uid ?? '',
-                                                    establishmentService:
-                                                        widget.establishmentService,
-                                                    establishment: est,
-                                                  ),
-                                                ),
-                                              );
-                                            },
-                                            onQueue: () {
-                                              Navigator.of(context).push(
-                                                MaterialPageRoute(
-                                                  builder: (_) => QueueRegistrationScreen(
-                                                    establishment: est,
-                                                  ),
-                                                ),
-                                              );
-                                            },
-                                            onDelete: () async {
-                                              final confirmed = await showDialog<bool>(
-                                                context: context,
-                                                builder: (dialogContext) => AlertDialog(
-                                                  title: const Text('Remover estabelecimento'),
-                                                  content: const Text(
-                                                      'Deseja remover este estabelecimento?'),
-                                                  actions: [
-                                                    TextButton(
-                                                      onPressed: () => Navigator.of(
-                                                              dialogContext)
-                                                          .pop(false),
-                                                      child: const Text('Cancelar'),
-                                                    ),
-                                                    TextButton(
-                                                      onPressed: () => Navigator.of(
-                                                              dialogContext)
-                                                          .pop(true),
-                                                      child: const Text('Remover'),
-                                                    ),
-                                                  ],
-                                                ),
-                                              );
-                                              if (confirmed == true) {
-                                                try {
-                                                  await widget.establishmentService
-                                                      .deleteEstablishment(est.id);
-                                                  if (context.mounted) {
-                                                    ScaffoldMessenger.of(context)
-                                                        .showSnackBar(
-                                                      const SnackBar(
-                                                          content: Text(
-                                                              'Estabelecimento removido.')),
-                                                    );
-                                                  }
-                                                } catch (error) {
-                                                  if (context.mounted) {
-                                                    ScaffoldMessenger.of(context)
-                                                        .showSnackBar(
-                                                      SnackBar(
-                                                          content: Text(
-                                                              'Erro ao remover: ${error.toString()}')),
-                                                    );
-                                                  }
-                                                }
-                                              }
-                                            },
-                                            onCustomerArrived: () async {
-                                              final confirmed = await showDialog<bool>(
-                                                context: context,
-                                                builder: (ctx) => AlertDialog(
-                                                  title: const Text('Chegou +1 cliente'),
-                                                  content: const Text(
-                                                      'Confirmar a chegada de um novo cliente na fila?'),
-                                                  actions: [
-                                                    TextButton(
-                                                      onPressed: () =>
-                                                          Navigator.of(ctx).pop(false),
-                                                      child: const Text('Cancelar'),
-                                                    ),
-                                                    TextButton(
-                                                      onPressed: () =>
-                                                          Navigator.of(ctx).pop(true),
-                                                      style: TextButton.styleFrom(
-                                                        foregroundColor:
-                                                            const Color(0xFF0CA79B),
-                                                      ),
-                                                      child: const Text('Confirmar'),
-                                                    ),
-                                                  ],
-                                                ),
-                                              );
-                                              if (confirmed == true) {
-                                                try {
-                                                  await widget.queueService
-                                                      .addCustomerToQueue(est.id);
-                                                } catch (e) {
-                                                  if (context.mounted) {
-                                                    ScaffoldMessenger.of(context)
-                                                        .showSnackBar(SnackBar(
-                                                      content: Text('Erro: $e'),
-                                                    ));
-                                                  }
-                                                }
-                                              }
-                                            },
-                                          ),
-                                        ),
-                                      const SizedBox(height: 24),
-                                    ],
-                                  );
-                                },
-                              ),
-                            ],
-                          ),
                         ),
                       ],
                     ),
@@ -870,7 +639,8 @@ class _NearbyEstablishmentCard extends StatelessWidget {
                   children: [
                     Text(
                       nearby.establishment.name,
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                      style: const TextStyle(
+                          fontSize: 15, fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -883,7 +653,8 @@ class _NearbyEstablishmentCard extends StatelessWidget {
                     Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
                             color: const Color.fromRGBO(12, 167, 155, 0.12),
                             borderRadius: BorderRadius.circular(8),
@@ -899,7 +670,8 @@ class _NearbyEstablishmentCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 6),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
                             color: color.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(8),
@@ -927,8 +699,10 @@ class _NearbyEstablishmentCard extends StatelessWidget {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  textStyle: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w600),
                 ),
                 child: const Text('Entrar'),
               ),
@@ -999,14 +773,16 @@ class _SearchResultItem extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         establishment.address,
-                        style: const TextStyle(fontSize: 12, color: Colors.black45),
+                        style:
+                            const TextStyle(fontSize: 12, color: Colors.black45),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: color.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(8),
@@ -1025,255 +801,6 @@ class _SearchResultItem extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-}
-
-class _EstablishmentCard extends StatelessWidget {
-  final Establishment establishment;
-  final QueueService queueService;
-  final VoidCallback onEdit;
-  final VoidCallback onQueue;
-  final VoidCallback onDelete;
-  final VoidCallback onServed;
-  final VoidCallback onCustomerArrived;
-
-  const _EstablishmentCard({
-    required this.establishment,
-    required this.queueService,
-    required this.onEdit,
-    required this.onQueue,
-    required this.onDelete,
-    required this.onServed,
-    required this.onCustomerArrived,
-  });
-
-  Color _getQueueStatusColor(int quantity) {
-    if (quantity < 5) return const Color(0xFF4CAF50);
-    if (quantity <= 15) return const Color(0xFFFFC107);
-    return const Color(0xFFF44336);
-  }
-
-  String _getQueueStatusLabel(int quantity) {
-    if (quantity < 5) return 'Baixa';
-    if (quantity <= 15) return 'Média';
-    return 'Alta';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: const [
-          BoxShadow(
-            color: Color.fromRGBO(0, 0, 0, 0.05),
-            blurRadius: 16,
-            offset: Offset(0, 10),
-          ),
-        ],
-      ),
-      child: StreamBuilder(
-        stream: queueService.watchQueueForEstablishment(establishment.id),
-        builder: (context, snapshot) {
-          final queue = snapshot.data;
-          final statusColor =
-              queue != null ? _getQueueStatusColor(queue.quantityPeople) : Colors.grey;
-          final statusLabel =
-              queue != null ? _getQueueStatusLabel(queue.quantityPeople) : 'Sem dados';
-
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          establishment.name,
-                          style: const TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          establishment.address,
-                          style: const TextStyle(fontSize: 14, color: Colors.black54),
-                        ),
-                        const SizedBox(height: 6),
-                        TextButton.icon(
-                          onPressed: onEdit,
-                          icon: const Icon(Icons.edit, size: 18),
-                          label: const Text('Editar'),
-                          style: TextButton.styleFrom(
-                            foregroundColor: const Color(0xFF0CA79B),
-                            textStyle: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Column(
-                    children: [
-                      Container(
-                        width: 60,
-                        height: 60,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: statusColor.withValues(alpha: 0.2),
-                        ),
-                        child: Center(
-                          child: Container(
-                            width: 45,
-                            height: 45,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: statusColor,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        statusLabel,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: statusColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _DetailChip(
-                        label: 'Capacidade',
-                        value: establishment.capacity.toString()),
-                    const SizedBox(width: 8),
-                    _DetailChip(
-                        label: 'Atendimento', value: establishment.serviceType),
-                  ],
-                ),
-              ),
-              if (queue != null) ...[
-                const SizedBox(height: 8),
-                IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _DetailChip(
-                          label: 'Pessoas na fila',
-                          value: queue.quantityPeople.toString()),
-                      const SizedBox(width: 8),
-                      _DetailChip(
-                          label: 'Tempo esperado',
-                          value: '${queue.averageWaitingTime} min'),
-                    ],
-                  ),
-                ),
-              ],
-              const SizedBox(height: 12),
-              if (queue != null && queue.quantityPeople > 0)
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: onServed,
-                    icon: const Icon(Icons.how_to_reg, size: 18),
-                    label: const Text('+1 cliente atendido'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0CA79B),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      textStyle: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                ),
-              if (queue != null) ...[
-                const SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: onCustomerArrived,
-                    icon: const Icon(Icons.person_add_outlined, size: 18),
-                    label: const Text('Chegou +1 cliente'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF0CA79B),
-                      side: const BorderSide(color: Color(0xFF0CA79B)),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      textStyle: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 4),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  TextButton.icon(
-                    onPressed: onQueue,
-                    icon: const Icon(Icons.queue, size: 18),
-                    label: const Text('Fila'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: const Color(0xFF0CA79B),
-                      textStyle: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                  TextButton.icon(
-                    onPressed: onDelete,
-                    icon: const Icon(Icons.delete, size: 18),
-                    label: const Text('Remover'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.redAccent,
-                      textStyle: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _DetailChip extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _DetailChip({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: const Color.fromRGBO(12, 167, 155, 0.08),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Text(
-          '$label: $value',
-          style: const TextStyle(fontSize: 13, color: Color(0xFF0A887E)),
-        ),
-      ),
     );
   }
 }
@@ -1317,67 +844,6 @@ class _StatusBadge extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _InfoCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String description;
-
-  const _InfoCard({
-    required this.icon,
-    required this.title,
-    required this.description,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: const [
-          BoxShadow(
-            color: Color.fromRGBO(0, 0, 0, 0.04),
-            blurRadius: 18,
-            offset: Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            height: 44,
-            width: 44,
-            decoration: BoxDecoration(
-              color: const Color.fromRGBO(12, 167, 155, 0.12),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(icon, color: const Color(0xFF0CA79B)),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  description,
-                  style: const TextStyle(fontSize: 14, color: Colors.black54),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
