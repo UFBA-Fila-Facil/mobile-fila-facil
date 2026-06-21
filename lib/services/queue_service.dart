@@ -40,16 +40,128 @@ class QueueService {
       _firestore.collection('user_queues');
 
   Future<void> joinQueue(String userId, String establishmentId) async {
-    await _userQueueCollection.add({
-      'userId': userId,
-      'establishmentId': establishmentId,
-      'joinedAt': Timestamp.now(),
-      'active': true,
+    final queueQuery = await _firestore
+        .collection('queues')
+        .where('establishmentId', isEqualTo: establishmentId)
+        .limit(1)
+        .get();
+
+    if (queueQuery.docs.isEmpty) {
+      throw Exception('Nenhuma fila encontrada para este estabelecimento');
+    }
+
+    final queueRef = queueQuery.docs.first.reference;
+    final newEntryRef = _userQueueCollection.doc();
+
+    await _firestore.runTransaction((transaction) async {
+      final queueSnap = await transaction.get(queueRef);
+      final currentCount = (queueSnap.data()?['quantityPeople'] as num?)?.toInt() ?? 0;
+      final newPosition = currentCount + 1;
+
+      transaction.update(queueRef, {'quantityPeople': newPosition});
+      transaction.set(newEntryRef, {
+        'userId': userId,
+        'establishmentId': establishmentId,
+        'queueId': queueRef.id,
+        'joinedAt': Timestamp.now(),
+        'active': true,
+        'position': newPosition,
+      });
     });
   }
 
   Future<void> leaveQueue(String entryId) async {
-    await _userQueueCollection.doc(entryId).update({'active': false});
+    final entryRef = _userQueueCollection.doc(entryId);
+    final entrySnap = await entryRef.get();
+    final data = entrySnap.data()!;
+    final position = (data['position'] as num?)?.toInt() ?? 0;
+    final establishmentId = data['establishmentId'] as String? ?? '';
+    final queueId = data['queueId'] as String? ?? '';
+
+    final activeEntriesSnapshot = await _userQueueCollection
+        .where('establishmentId', isEqualTo: establishmentId)
+        .where('active', isEqualTo: true)
+        .get();
+
+    final higherPositionEntries = activeEntriesSnapshot.docs
+        .where((doc) => ((doc.data()['position'] as num?)?.toInt() ?? 0) > position)
+        .toList();
+
+    DocumentReference? queueRef;
+    if (queueId.isNotEmpty) {
+      queueRef = _firestore.collection('queues').doc(queueId);
+    } else {
+      final queueQuery = await _firestore
+          .collection('queues')
+          .where('establishmentId', isEqualTo: establishmentId)
+          .limit(1)
+          .get();
+      if (queueQuery.docs.isNotEmpty) {
+        queueRef = queueQuery.docs.first.reference;
+      }
+    }
+
+    final batch = _firestore.batch();
+
+    batch.update(entryRef, {'active': false});
+
+    if (queueRef != null) {
+      batch.update(queueRef, {'quantityPeople': FieldValue.increment(-1)});
+    }
+
+    for (final doc in higherPositionEntries) {
+      batch.update(doc.reference, {'position': FieldValue.increment(-1)});
+    }
+
+    await batch.commit();
+  }
+
+  Future<void> serveNextCustomer(String establishmentId) async {
+    final activeEntries = await _userQueueCollection
+        .where('establishmentId', isEqualTo: establishmentId)
+        .where('active', isEqualTo: true)
+        .get();
+
+    final queueQuery = await _firestore
+        .collection('queues')
+        .where('establishmentId', isEqualTo: establishmentId)
+        .limit(1)
+        .get();
+
+    if (queueQuery.docs.isEmpty) return;
+    final queueRef = queueQuery.docs.first.reference;
+
+    final batch = _firestore.batch();
+
+    batch.update(queueRef, {'quantityPeople': FieldValue.increment(-1)});
+
+    for (final doc in activeEntries.docs) {
+      final pos = (doc.data()['position'] as num?)?.toInt() ?? 0;
+      if (pos == 1) {
+        batch.update(doc.reference, {'active': false});
+      } else {
+        batch.update(doc.reference, {'position': FieldValue.increment(-1)});
+      }
+    }
+
+    await batch.commit();
+  }
+
+  Future<void> addCustomerToQueue(String establishmentId) async {
+    final queueQuery = await _firestore
+        .collection('queues')
+        .where('establishmentId', isEqualTo: establishmentId)
+        .limit(1)
+        .get();
+
+    if (queueQuery.docs.isEmpty) return;
+    final queueRef = queueQuery.docs.first.reference;
+
+    await _firestore.runTransaction((transaction) async {
+      final queueSnap = await transaction.get(queueRef);
+      final currentCount = (queueSnap.data()?['quantityPeople'] as num?)?.toInt() ?? 0;
+      transaction.update(queueRef, {'quantityPeople': currentCount + 1});
+    });
   }
 
   Stream<UserQueueEntry?> watchUserActiveQueue(String userId) {
@@ -60,14 +172,8 @@ class QueueService {
         .snapshots()
         .map((snapshot) {
       if (snapshot.docs.isEmpty) return null;
-      final doc = snapshot.docs.first;
-      final data = doc.data();
-      return UserQueueEntry(
-        id: doc.id,
-        userId: data['userId'] as String? ?? '',
-        establishmentId: data['establishmentId'] as String? ?? '',
-        joinedAt: (data['joinedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-        active: data['active'] as bool? ?? true,
+      return UserQueueEntry.fromDocument(
+        snapshot.docs.first as DocumentSnapshot<Map<String, dynamic>>,
       );
     });
   }

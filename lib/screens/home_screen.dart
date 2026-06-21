@@ -126,6 +126,110 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _servedQueue(
+      BuildContext context, String entryId, String establishmentName) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Fui atendido'),
+        content: const Text('Confirmar que você foi atendido?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Color(0xFF0CA79B)),
+            child: const Text('Confirmar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      try {
+        await widget.queueService.leaveQueue(entryId);
+        if (context.mounted) {
+          await showDialog(
+            context: context,
+            builder: (ctx) => Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(28, 32, 28, 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 72,
+                      height: 72,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Color.fromRGBO(12, 167, 155, 0.12),
+                      ),
+                      child: const Icon(
+                        Icons.check_circle_outline_rounded,
+                        color: Color(0xFF0CA79B),
+                        size: 40,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    const Text(
+                      'Obrigado pela visita!',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0CA79B),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Ficamos felizes em ter facilitado sua visita a $establishmentName. '
+                      'Conte com o FilaFácil sempre que precisar!',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Colors.black54,
+                        height: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0CA79B),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        child: const Text(
+                          'Fechar',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Erro: $e')),
+          );
+        }
+      }
+    }
+  }
+
   Color _getQueueStatusColor(int quantity) {
     if (quantity < 5) return const Color(0xFF4CAF50);
     if (quantity <= 15) return const Color(0xFFFFC107);
@@ -205,11 +309,11 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildActiveQueueContent(BuildContext context, UserQueueEntry entry) {
     return StreamBuilder<Establishment?>(
       stream: widget.establishmentService.watchEstablishment(entry.establishmentId),
-      builder: (context, estSnapshot) {
+      builder: (_, estSnapshot) {
         final establishment = estSnapshot.data;
         return StreamBuilder<QueueModel?>(
           stream: widget.queueService.watchQueueForEstablishment(entry.establishmentId),
-          builder: (context, queueSnapshot) {
+          builder: (_, queueSnapshot) {
             final queue = queueSnapshot.data;
             final statusColor = queue != null
                 ? _getQueueStatusColor(queue.quantityPeople)
@@ -245,6 +349,19 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 20),
                 Row(
                   children: [
+                    
+                    _StatusBadge(
+                      label: 'Posição',
+                      value: '${entry.position}º',
+                      backgroundColor: const Color.fromRGBO(12, 167, 155, 0.12),
+                      labelColor: const Color(0xFF0CA79B),
+                      valueColor: const Color(0xFF0CA79B),
+                    )
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
                     _StatusBadge(
                       label: 'Fila',
                       value: statusLabel,
@@ -263,6 +380,23 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
                 const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () => _servedQueue(context, entry.id, establishment?.name ?? 'este estabelecimento'),
+                    icon: const Icon(Icons.check_circle_outline),
+                    label: const Text('Fui atendido'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0CA79B),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
@@ -311,7 +445,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Parte fixa: cabeçalho + card principal
+                // Cabeçalho fixo
                 Padding(
                   padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
                   child: Column(
@@ -340,184 +474,269 @@ class _HomeScreenState extends State<HomeScreen> {
                         'Entre na fila sem sair de casa',
                         style: TextStyle(color: Colors.white70, fontSize: 16),
                       ),
-                      const SizedBox(height: 24),
-                      StreamBuilder<UserQueueEntry?>(
-                        stream: widget.queueService.watchUserActiveQueue(user?.uid ?? ''),
-                        builder: (context, queueSnapshot) {
-                          final activeEntry = queueSnapshot.data;
-                          return Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(28),
-                              boxShadow: const [
-                                BoxShadow(
-                                  color: Color.fromRGBO(0, 0, 0, 0.08),
-                                  blurRadius: 24,
-                                  offset: Offset(0, 12),
-                                ),
-                              ],
-                            ),
-                            child: activeEntry != null
-                                ? _buildActiveQueueContent(context, activeEntry)
-                                : _buildSearchContent(
-                                    context, displayName, user?.uid ?? ''),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 24),
                     ],
                   ),
                 ),
-                // Parte rolável: lista de estabelecimentos
+                // Conteúdo rolável
                 Expanded(
                   child: SingleChildScrollView(
                     physics: const BouncingScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Meus estabelecimentos',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 8),
-                        if (user != null)
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF0CA79B),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                            ),
-                            icon: const Icon(Icons.add),
-                            label: const Text('Cadastrar'),
-                            onPressed: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => EstablishmentRegistrationScreen(
-                                    adminId: user.uid,
-                                    establishmentService: widget.establishmentService,
-                                  ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                          child: StreamBuilder<UserQueueEntry?>(
+                            stream: widget.queueService.watchUserActiveQueue(user?.uid ?? ''),
+                            builder: (_, queueSnapshot) {
+                              final activeEntry = queueSnapshot.data;
+                              return Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(20),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(28),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Color.fromRGBO(0, 0, 0, 0.08),
+                                      blurRadius: 24,
+                                      offset: Offset(0, 12),
+                                    ),
+                                  ],
                                 ),
+                                child: activeEntry != null
+                                    ? _buildActiveQueueContent(context, activeEntry)
+                                    : _buildSearchContent(
+                                        context, displayName, user?.uid ?? ''),
                               );
                             },
                           ),
-                        const SizedBox(height: 16),
-                        StreamBuilder<List<Establishment>>(
-                          stream: widget.establishmentService
-                              .watchUserEstablishments(user?.uid ?? ''),
-                          builder: (context, snapshot) {
-                            if (snapshot.hasError) {
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                child: Text(
-                                  'Erro ao carregar estabelecimentos: ${snapshot.error}',
-                                  style: const TextStyle(color: Colors.redAccent),
-                                ),
-                              );
-                            }
-
-                            if (snapshot.connectionState == ConnectionState.waiting) {
-                              return const Center(child: CircularProgressIndicator());
-                            }
-
-                            final establishments = snapshot.data ?? [];
-
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                if (establishments.isEmpty)
-                                  const Padding(
-                                    padding: EdgeInsets.symmetric(vertical: 8),
-                                    child: Text(
-                                      'Nenhum estabelecimento cadastrado ainda.',
-                                      style:
-                                          TextStyle(fontSize: 16, color: Colors.black54),
-                                    ),
-                                  )
-                                else
-                                  ...establishments.map(
-                                    (est) => _EstablishmentCard(
-                                      establishment: est,
-                                      queueService: widget.queueService,
-                                      onEdit: () {
-                                        Navigator.of(context).push(
-                                          MaterialPageRoute(
-                                            builder: (_) =>
-                                                EstablishmentRegistrationScreen(
-                                              adminId: user?.uid ?? '',
-                                              establishmentService:
-                                                  widget.establishmentService,
-                                              establishment: est,
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                      onQueue: () {
-                                        Navigator.of(context).push(
-                                          MaterialPageRoute(
-                                            builder: (_) => QueueRegistrationScreen(
-                                              establishment: est,
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                      onDelete: () async {
-                                        final confirmed = await showDialog<bool>(
-                                          context: context,
-                                          builder: (dialogContext) => AlertDialog(
-                                            title:
-                                                const Text('Remover estabelecimento'),
-                                            content: const Text(
-                                                'Deseja remover este estabelecimento?'),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () => Navigator.of(
-                                                        dialogContext)
-                                                    .pop(false),
-                                                child: const Text('Cancelar'),
-                                              ),
-                                              TextButton(
-                                                onPressed: () => Navigator.of(
-                                                        dialogContext)
-                                                    .pop(true),
-                                                child: const Text('Remover'),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                        if (confirmed == true) {
-                                          try {
-                                            await widget.establishmentService
-                                                .deleteEstablishment(est.id);
-                                            if (context.mounted) {
-                                              ScaffoldMessenger.of(context)
-                                                  .showSnackBar(
-                                                const SnackBar(
-                                                    content: Text(
-                                                        'Estabelecimento removido.')),
-                                              );
-                                            }
-                                          } catch (error) {
-                                            if (context.mounted) {
-                                              ScaffoldMessenger.of(context)
-                                                  .showSnackBar(
-                                                SnackBar(
-                                                    content: Text(
-                                                        'Erro ao remover: ${error.toString()}')),
-                                              );
-                                            }
-                                          }
-                                        }
-                                      },
+                        ),
+                        const SizedBox(height: 24),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Meus estabelecimentos',
+                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                              ),
+                              const SizedBox(height: 8),
+                              if (user != null)
+                                ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF0CA79B),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
                                     ),
                                   ),
-                                const SizedBox(height: 24),
-                              ],
-                            );
-                          },
+                                  icon: const Icon(Icons.add),
+                                  label: const Text('Cadastrar'),
+                                  onPressed: () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) => EstablishmentRegistrationScreen(
+                                          adminId: user.uid,
+                                          establishmentService: widget.establishmentService,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              const SizedBox(height: 16),
+                              StreamBuilder<List<Establishment>>(
+                                stream: widget.establishmentService
+                                    .watchUserEstablishments(user?.uid ?? ''),
+                                builder: (context, snapshot) {
+                                  if (snapshot.hasError) {
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 12),
+                                      child: Text(
+                                        'Erro ao carregar estabelecimentos: ${snapshot.error}',
+                                        style: const TextStyle(color: Colors.redAccent),
+                                      ),
+                                    );
+                                  }
+
+                                  if (snapshot.connectionState == ConnectionState.waiting) {
+                                    return const Center(child: CircularProgressIndicator());
+                                  }
+
+                                  final establishments = snapshot.data ?? [];
+
+                                  return Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      if (establishments.isEmpty)
+                                        const Padding(
+                                          padding: EdgeInsets.symmetric(vertical: 8),
+                                          child: Text(
+                                            'Nenhum estabelecimento cadastrado ainda.',
+                                            style: TextStyle(fontSize: 16, color: Colors.black54),
+                                          ),
+                                        )
+                                      else
+                                        ...establishments.map(
+                                          (est) => _EstablishmentCard(
+                                            establishment: est,
+                                            queueService: widget.queueService,
+                                            onServed: () async {
+                                              final confirmed = await showDialog<bool>(
+                                                context: context,
+                                                builder: (ctx) => AlertDialog(
+                                                  title: const Text('+1 cliente atendido'),
+                                                  content: const Text(
+                                                      'Confirmar que um cliente foi atendido? O próximo da fila será chamado.'),
+                                                  actions: [
+                                                    TextButton(
+                                                      onPressed: () =>
+                                                          Navigator.of(ctx).pop(false),
+                                                      child: const Text('Cancelar'),
+                                                    ),
+                                                    TextButton(
+                                                      onPressed: () =>
+                                                          Navigator.of(ctx).pop(true),
+                                                      style: TextButton.styleFrom(
+                                                        foregroundColor:
+                                                            const Color(0xFF0CA79B),
+                                                      ),
+                                                      child: const Text('Confirmar'),
+                                                    ),
+                                                  ],
+                                                ),
+                                              );
+                                              if (confirmed == true) {
+                                                try {
+                                                  await widget.queueService
+                                                      .serveNextCustomer(est.id);
+                                                } catch (e) {
+                                                  if (context.mounted) {
+                                                    ScaffoldMessenger.of(context)
+                                                        .showSnackBar(SnackBar(
+                                                      content: Text('Erro: $e'),
+                                                    ));
+                                                  }
+                                                }
+                                              }
+                                            },
+                                            onEdit: () {
+                                              Navigator.of(context).push(
+                                                MaterialPageRoute(
+                                                  builder: (_) =>
+                                                      EstablishmentRegistrationScreen(
+                                                    adminId: user?.uid ?? '',
+                                                    establishmentService:
+                                                        widget.establishmentService,
+                                                    establishment: est,
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                            onQueue: () {
+                                              Navigator.of(context).push(
+                                                MaterialPageRoute(
+                                                  builder: (_) => QueueRegistrationScreen(
+                                                    establishment: est,
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                            onDelete: () async {
+                                              final confirmed = await showDialog<bool>(
+                                                context: context,
+                                                builder: (dialogContext) => AlertDialog(
+                                                  title: const Text('Remover estabelecimento'),
+                                                  content: const Text(
+                                                      'Deseja remover este estabelecimento?'),
+                                                  actions: [
+                                                    TextButton(
+                                                      onPressed: () => Navigator.of(
+                                                              dialogContext)
+                                                          .pop(false),
+                                                      child: const Text('Cancelar'),
+                                                    ),
+                                                    TextButton(
+                                                      onPressed: () => Navigator.of(
+                                                              dialogContext)
+                                                          .pop(true),
+                                                      child: const Text('Remover'),
+                                                    ),
+                                                  ],
+                                                ),
+                                              );
+                                              if (confirmed == true) {
+                                                try {
+                                                  await widget.establishmentService
+                                                      .deleteEstablishment(est.id);
+                                                  if (context.mounted) {
+                                                    ScaffoldMessenger.of(context)
+                                                        .showSnackBar(
+                                                      const SnackBar(
+                                                          content: Text(
+                                                              'Estabelecimento removido.')),
+                                                    );
+                                                  }
+                                                } catch (error) {
+                                                  if (context.mounted) {
+                                                    ScaffoldMessenger.of(context)
+                                                        .showSnackBar(
+                                                      SnackBar(
+                                                          content: Text(
+                                                              'Erro ao remover: ${error.toString()}')),
+                                                    );
+                                                  }
+                                                }
+                                              }
+                                            },
+                                            onCustomerArrived: () async {
+                                              final confirmed = await showDialog<bool>(
+                                                context: context,
+                                                builder: (ctx) => AlertDialog(
+                                                  title: const Text('Chegou +1 cliente'),
+                                                  content: const Text(
+                                                      'Confirmar a chegada de um novo cliente na fila?'),
+                                                  actions: [
+                                                    TextButton(
+                                                      onPressed: () =>
+                                                          Navigator.of(ctx).pop(false),
+                                                      child: const Text('Cancelar'),
+                                                    ),
+                                                    TextButton(
+                                                      onPressed: () =>
+                                                          Navigator.of(ctx).pop(true),
+                                                      style: TextButton.styleFrom(
+                                                        foregroundColor:
+                                                            const Color(0xFF0CA79B),
+                                                      ),
+                                                      child: const Text('Confirmar'),
+                                                    ),
+                                                  ],
+                                                ),
+                                              );
+                                              if (confirmed == true) {
+                                                try {
+                                                  await widget.queueService
+                                                      .addCustomerToQueue(est.id);
+                                                } catch (e) {
+                                                  if (context.mounted) {
+                                                    ScaffoldMessenger.of(context)
+                                                        .showSnackBar(SnackBar(
+                                                      content: Text('Erro: $e'),
+                                                    ));
+                                                  }
+                                                }
+                                              }
+                                            },
+                                          ),
+                                        ),
+                                      const SizedBox(height: 24),
+                                    ],
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
@@ -627,6 +846,8 @@ class _EstablishmentCard extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onQueue;
   final VoidCallback onDelete;
+  final VoidCallback onServed;
+  final VoidCallback onCustomerArrived;
 
   const _EstablishmentCard({
     required this.establishment,
@@ -634,6 +855,8 @@ class _EstablishmentCard extends StatelessWidget {
     required this.onEdit,
     required this.onQueue,
     required this.onDelete,
+    required this.onServed,
+    required this.onCustomerArrived,
   });
 
   Color _getQueueStatusColor(int quantity) {
@@ -772,6 +995,45 @@ class _EstablishmentCard extends StatelessWidget {
                 ),
               ],
               const SizedBox(height: 12),
+              if (queue != null && queue.quantityPeople > 0)
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: onServed,
+                    icon: const Icon(Icons.how_to_reg, size: 18),
+                    label: const Text('+1 cliente atendido'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0CA79B),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      textStyle: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+              if (queue != null) ...[
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: onCustomerArrived,
+                    icon: const Icon(Icons.person_add_outlined, size: 18),
+                    label: const Text('Chegou +1 cliente'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF0CA79B),
+                      side: const BorderSide(color: Color(0xFF0CA79B)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      textStyle: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 4),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
