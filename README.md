@@ -301,6 +301,75 @@ A view `DeepLink.view.bxb` é compartilhada entre todas as actions, pois todas r
 
 ---
 
+## 📍 Estabelecimentos Próximos
+
+A tela inicial exibe automaticamente os estabelecimentos mais próximos do usuário, com base em sua localização atual.
+
+### Regra de negócio
+
+| Critério | Valor |
+|---|---|
+| Raio máximo | 1 km |
+| Máximo de resultados | 5 |
+| Ordenação | Distância crescente |
+| Pré-requisito | Estabelecimento precisa ter `location` (GeoPoint) cadastrado |
+
+### Fluxo
+
+```
+Abertura da HomeScreen
+      ↓
+Solicita permissão de localização (se ainda não concedida)
+      ↓
+Obtém posição atual via GPS (precisão média)
+      ↓
+Busca todos os estabelecimentos no Firestore
+      ↓
+Filtra os que possuem GeoPoint e estão a ≤ 1 km (fórmula de Haversine)
+      ↓
+Ordena por distância crescente → retorna os 5 mais próximos
+      ↓
+Exibe na seção "Estabelecimentos próximos" da HomeScreen
+```
+
+### Cálculo de distância
+
+Utiliza a **fórmula de Haversine** para calcular a distância geodésica (em km) entre as coordenadas do usuário e as de cada estabelecimento:
+
+```dart
+// lib/services/nearby_establishments_service.dart
+double _haversineDistance(double lat1, double lon1, double lat2, double lon2)
+```
+
+A distância é exibida ao usuário formatada:
+- Abaixo de 100 m → `"350 m"`
+- Acima de 100 m → `"0.8 km"`
+
+### Permissões Android
+
+Declaradas em `android/app/src/main/AndroidManifest.xml`:
+
+```xml
+<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+```
+
+A solicitação em runtime é gerenciada pelo pacote `geolocator`. Se o usuário negar a permissão ou o GPS estiver desligado, a seção exibe *"Não foi possível obter a localização."*
+
+### Arquivos envolvidos
+
+| Arquivo | Responsabilidade |
+|---|---|
+| `lib/services/nearby_establishments_service.dart` | Obtém localização, busca Firestore, filtra por distância |
+| `lib/screens/home_screen.dart` | Exibe a seção e o card de cada estabelecimento próximo |
+
+| Classe | Papel |
+|---|---|
+| `NearbyEstablishmentsService` | Orquestra permissão, posição GPS e filtragem por raio |
+| `NearbyEstablishment` | DTO — agrega `Establishment` e a `distanceKm` calculada |
+
+---
+
 ## 📌 Observações
 
 Este projeto foi estruturado com foco em boas práticas modernas de arquitetura mobile, sendo facilmente escalável e adaptável a novas funcionalidades.

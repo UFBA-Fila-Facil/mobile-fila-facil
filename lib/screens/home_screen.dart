@@ -9,6 +9,7 @@ import '../screens/establishment_registration_screen.dart';
 import '../screens/queue_registration_screen.dart';
 import '../services/auth_service.dart';
 import '../services/establishment_service.dart';
+import '../services/nearby_establishments_service.dart';
 import '../services/queue_service.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -33,6 +34,13 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Establishment> _searchResults = [];
   bool _isSearchLoading = false;
   Timer? _debounceTimer;
+  Future<List<NearbyEstablishment>>? _nearbyFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _nearbyFuture = NearbyEstablishmentsService().getNearbyEstablishments();
+  }
 
   @override
   void dispose() {
@@ -421,6 +429,58 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildNearbySection(BuildContext context, String userId) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Estabelecimentos próximos',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        FutureBuilder<List<NearbyEstablishment>>(
+          future: _nearbyFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+              );
+            }
+            if (snapshot.hasError) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Text(
+                  'Não foi possível obter a localização.',
+                  style: TextStyle(color: Colors.black54, fontSize: 14),
+                ),
+              );
+            }
+            final nearby = snapshot.data ?? [];
+            if (nearby.isEmpty) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Text(
+                  'Nenhum estabelecimento encontrado próximo a você.',
+                  style: TextStyle(color: Colors.black54, fontSize: 14),
+                ),
+              );
+            }
+            return Column(
+              children: nearby
+                  .map((item) => _NearbyEstablishmentCard(
+                        nearby: item,
+                        queueService: widget.queueService,
+                        onJoin: () => _joinQueue(context, item.establishment, userId),
+                      ))
+                  .toList(),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = widget.authService.currentUser;
@@ -511,6 +571,11 @@ class _HomeScreenState extends State<HomeScreen> {
                               );
                             },
                           ),
+                        ),
+                        const SizedBox(height: 24),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: _buildNearbySection(context, user?.uid ?? ''),
                         ),
                         const SizedBox(height: 24),
                         Padding(
@@ -747,6 +812,130 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _NearbyEstablishmentCard extends StatelessWidget {
+  final NearbyEstablishment nearby;
+  final QueueService queueService;
+  final VoidCallback onJoin;
+
+  const _NearbyEstablishmentCard({
+    required this.nearby,
+    required this.queueService,
+    required this.onJoin,
+  });
+
+  Color _getStatusColor(int qty) {
+    if (qty < 5) return const Color(0xFF4CAF50);
+    if (qty <= 15) return const Color(0xFFFFC107);
+    return const Color(0xFFF44336);
+  }
+
+  String _getStatusLabel(int qty) {
+    if (qty < 5) return 'Baixa';
+    if (qty <= 15) return 'Média';
+    return 'Alta';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QueueModel?>(
+      stream: queueService.watchQueueForEstablishment(nearby.establishment.id),
+      builder: (context, snapshot) {
+        final queue = snapshot.data;
+        final color = queue != null ? _getStatusColor(queue.quantityPeople) : Colors.grey;
+        final label = queue != null ? _getStatusLabel(queue.quantityPeople) : '--';
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: const [
+              BoxShadow(
+                color: Color.fromRGBO(0, 0, 0, 0.05),
+                blurRadius: 14,
+                offset: Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      nearby.establishment.name,
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      nearby.establishment.address,
+                      style: const TextStyle(fontSize: 12, color: Colors.black45),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color.fromRGBO(12, 167, 155, 0.12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            nearby.distanceLabel,
+                            style: const TextStyle(
+                              color: Color(0xFF0CA79B),
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: color.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            'Fila: $label',
+                            style: TextStyle(
+                              color: color,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              ElevatedButton(
+                onPressed: onJoin,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0CA79B),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+                child: const Text('Entrar'),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
