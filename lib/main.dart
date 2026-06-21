@@ -1,16 +1,17 @@
+import 'dart:async';
+
+import 'package:app_links/app_links.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'firebase_options.dart'; // Import the generated file
-import 'package:app_links/app_links.dart';
-import 'dart:async';
 
+import 'firebase_options.dart';
 import 'screens/forgot_password_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'services/auth_service.dart';
-import 'services/app_actions_handler.dart';
+import 'services/deep_link_handler.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,6 +20,8 @@ Future<void> main() async {
   );
   runApp(const MyApp());
 }
+
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 class MyApp extends StatefulWidget {
   final AuthService? authService;
@@ -29,140 +32,22 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+  late final DeepLinkHandler _deepLinkHandler;
   StreamSubscription<Uri>? _sub;
-  final AppActionsHandler _handler = AppActionsHandler();
   final _appLinks = AppLinks();
+
+  // Evita duplicatas: app_links pode emitir o mesmo URI tanto em
+  // getInitialLink() quanto no uriLinkStream quando o app abre a frio.
+  String? _lastHandledUri;
 
   @override
   void initState() {
     super.initState();
+    _deepLinkHandler = DeepLinkHandler(navigatorKey: navigatorKey);
     _handleInitialUri();
-    _sub = _appLinks.uriLinkStream.listen((Uri uri) {
-      _processUri(uri);
-    }, onError: (err) {
-      // ignore
-    });
-  }
-
-  Future<void> _handleInitialUri() async {
-    try {
-      final uri = await _appLinks.getInitialLink();
-      if (uri != null) _processUri(uri);
-    } catch (e) {
-      // ignore
-    }
-  }
-
-  Future<void> _processUri(Uri uri) async {
-    final context = navigatorKey.currentState?.context;
-    if (context == null) return;
-
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      await _showDialog(
-        context,
-        'Autenticação necessária',
-        'Você precisa estar autenticado no app para alterar o estado da fila.',
-      );
-      return;
-    }
-
-    final params = uri.queryParameters;
-    final establishmentName = params['establishmentName'] ?? params['name'];
-    final quantity = _parseInt(params['quantity'] ?? params['quantityPeople']);
-    final wait = _parseInt(params['wait'] ?? params['averageWaitTime']);
-
-    if ((quantity == null && wait == null) || establishmentName == null || establishmentName.isEmpty) {
-      await _showDialog(
-        context,
-        'Parâmetros inválidos',
-        'O deeplink deve informar o nome do estabelecimento e pelo menos a quantidade de pessoas ou o tempo médio de espera.',
-      );
-      return;
-    }
-
-    final establishment = await _handler.findUserEstablishment(
-      userId: user.uid,
-      establishmentName: establishmentName,
-    );
-
-    if (establishment == null) {
-      await _showDialog(
-        context,
-        'Estabelecimento não encontrado',
-        'Não foi encontrado nenhum estabelecimento com o nome "$establishmentName" entre os seus estabelecimentos.',
-      );
-      return;
-    }
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Confirmar alteração de fila'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Estabelecimento: ${establishment.name}'),
-              if (quantity != null) Text('Quantidade de pessoas: $quantity'),
-              if (wait != null) Text('Tempo médio de espera: $wait minutos'),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Cancelar'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('Confirmar'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (confirmed != true) {
-      return;
-    }
-
-    try {
-      final result = await _handler.updateQueue(
-        establishmentId: establishment.id,
-        quantityPeople: quantity,
-        averageWaitTime: wait,
-      );
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result)));
-    } catch (e) {
-      await _showDialog(
-        context,
-        'Erro ao alterar fila',
-        e.toString(),
-      );
-    }
-  }
-
-  int? _parseInt(String? value) {
-    if (value == null || value.isEmpty) return null;
-    return int.tryParse(value);
-  }
-
-  Future<void> _showDialog(BuildContext context, String title, String message) async {
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: Text(title),
-          content: Text(message),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('OK'),
-            ),
-          ],
-        );
-      },
+    _sub = _appLinks.uriLinkStream.listen(
+      _dispatchUri,
+      onError: (_) {},
     );
   }
 
@@ -172,10 +57,25 @@ class _MyAppState extends State<MyApp> {
     super.dispose();
   }
 
+  void _dispatchUri(Uri uri) {
+    final key = uri.toString();
+    if (key == _lastHandledUri) return;
+    _lastHandledUri = key;
+    _deepLinkHandler.handleUri(uri);
+    // Libera após 2 s para permitir que o mesmo link seja acionado novamente
+    Future.delayed(const Duration(seconds: 2), () => _lastHandledUri = null);
+  }
+
+  Future<void> _handleInitialUri() async {
+    try {
+      final uri = await _appLinks.getInitialLink();
+      if (uri != null) _dispatchUri(uri);
+    } catch (_) {}
+  }
+
   @override
   Widget build(BuildContext context) {
     final service = widget.authService ?? FirebaseAuthService();
-
     return MaterialApp(
       navigatorKey: navigatorKey,
       title: 'Fila Fácil',
@@ -186,14 +86,12 @@ class _MyAppState extends State<MyApp> {
       home: AuthGate(authService: service),
       routes: {
         RegisterScreen.routeName: (context) => RegisterScreen(authService: service),
-        ForgotPasswordScreen.routeName: (context) => ForgotPasswordScreen(authService: service),
+        ForgotPasswordScreen.routeName: (context) =>
+            ForgotPasswordScreen(authService: service),
       },
     );
   }
 }
-
-// Global navigator key used to show SnackBar from URI handler
-final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 class AuthGate extends StatelessWidget {
   final AuthService authService;
@@ -205,15 +103,9 @@ class AuthGate extends StatelessWidget {
       stream: authService.authStateChanges(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
         }
-
-        if (snapshot.hasData) {
-          return HomeScreen(authService: authService);
-        }
-
+        if (snapshot.hasData) return HomeScreen(authService: authService);
         return LoginScreen(authService: authService);
       },
     );
