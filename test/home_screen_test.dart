@@ -8,9 +8,10 @@ import 'package:mobile_fila_facil/models/user_queue_entry.dart';
 import 'package:mobile_fila_facil/screens/home_screen.dart';
 import 'package:mobile_fila_facil/services/auth_service.dart';
 import 'package:mobile_fila_facil/services/establishment_service.dart';
+import 'package:mobile_fila_facil/services/nearby_establishments_service.dart';
 import 'package:mobile_fila_facil/services/queue_service.dart';
 
-// ── Mocks ────────────────────────────────────────────────────────────────────
+// ── Mocks ─────────────────────────────────────────────────────────────────────
 
 class MockAuthService extends Mock implements AuthService {}
 
@@ -24,6 +25,12 @@ class FakeQueueModel extends Fake implements QueueModel {}
 
 class MockFirestoreDoc extends Mock
     implements DocumentSnapshot<Map<String, dynamic>> {}
+
+class FakeNearbyEstablishmentsService extends Fake
+    implements NearbyEstablishmentsService {
+  @override
+  Future<List<NearbyEstablishment>> getNearbyEstablishments() async => [];
+}
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -72,7 +79,6 @@ UserQueueEntry _makeEntry({
       position: position,
     );
 
-/// Stubs mínimos para renderizar HomeScreen sem fila ativa e sem estabelecimentos.
 void _stubIdle(
   MockAuthService auth,
   MockEstablishmentService est,
@@ -80,10 +86,23 @@ void _stubIdle(
 ) {
   when(() => auth.currentUser).thenReturn(null);
   when(() => queue.watchUserActiveQueue(any())).thenAnswer((_) => Stream.value(null));
-  when(() => est.watchUserEstablishments(any())).thenAnswer((_) => Stream.value([]));
 }
 
-// ── Tests ────────────────────────────────────────────────────────────────────
+Widget _buildHome({
+  required MockAuthService auth,
+  required MockEstablishmentService est,
+  required MockQueueService queue,
+}) =>
+    MaterialApp(
+      home: HomeScreen(
+        authService: auth,
+        establishmentService: est,
+        queueService: queue,
+        nearbyEstablishmentsService: FakeNearbyEstablishmentsService(),
+      ),
+    );
+
+// ── Tests ─────────────────────────────────────────────────────────────────────
 
 void main() {
   setUpAll(() {
@@ -91,7 +110,7 @@ void main() {
     registerFallbackValue(FakeQueueModel());
   });
 
-  // ── Card de busca (sem fila ativa) ──────────────────────────────────────────
+  // ── Card de busca (sem fila ativa) ─────────────────────────────────────────
 
   group('HomeScreen — card de busca (usuário sem fila)', () {
     testWidgets('exibe campo de busca e mensagem inicial', (tester) async {
@@ -100,13 +119,7 @@ void main() {
       final queue = MockQueueService();
       _stubIdle(auth, est, queue);
 
-      await tester.pumpWidget(MaterialApp(
-        home: HomeScreen(
-          authService: auth,
-          establishmentService: est,
-          queueService: queue,
-        ),
-      ));
+      await tester.pumpWidget(_buildHome(auth: auth, est: est, queue: queue));
       await tester.pump();
 
       expect(
@@ -128,17 +141,11 @@ void main() {
       when(() => queueService.watchQueueForEstablishment('est-search'))
           .thenAnswer((_) => Stream.value(null));
 
-      await tester.pumpWidget(MaterialApp(
-        home: HomeScreen(
-          authService: auth,
-          establishmentService: estService,
-          queueService: queueService,
-        ),
-      ));
+      await tester.pumpWidget(_buildHome(auth: auth, est: estService, queue: queueService));
       await tester.pump();
 
       await tester.enterText(find.byType(TextField), 'Padaria');
-      await tester.pump(const Duration(milliseconds: 450)); // aguarda debounce
+      await tester.pump(const Duration(milliseconds: 450));
       await tester.pumpAndSettle();
 
       expect(find.text('Padaria Central'), findsOneWidget);
@@ -152,13 +159,7 @@ void main() {
 
       when(() => estService.searchEstablishments(any())).thenAnswer((_) async => []);
 
-      await tester.pumpWidget(MaterialApp(
-        home: HomeScreen(
-          authService: auth,
-          establishmentService: estService,
-          queueService: queueService,
-        ),
-      ));
+      await tester.pumpWidget(_buildHome(auth: auth, est: estService, queue: queueService));
       await tester.pump();
 
       await tester.enterText(find.byType(TextField), 'xyz');
@@ -169,7 +170,7 @@ void main() {
     });
   });
 
-  // ── Card de fila ativa ──────────────────────────────────────────────────────
+  // ── Card de fila ativa ─────────────────────────────────────────────────────
 
   group('HomeScreen — card de fila ativa (usuário na fila)', () {
     testWidgets('exibe nome, status e tempo de espera quando está na fila',
@@ -178,8 +179,6 @@ void main() {
       final estService = MockEstablishmentService();
       final queueService = MockQueueService();
       when(() => auth.currentUser).thenReturn(null);
-      when(() => estService.watchUserEstablishments(any()))
-          .thenAnswer((_) => Stream.value([]));
 
       final entry = _makeEntry(estId: 'est-1', position: 3);
       final establishment = _makeEstablishment(id: 'est-1', name: 'Farmácia Popular');
@@ -192,18 +191,12 @@ void main() {
       when(() => queueService.watchQueueForEstablishment('est-1'))
           .thenAnswer((_) => Stream.value(queue));
 
-      await tester.pumpWidget(MaterialApp(
-        home: HomeScreen(
-          authService: auth,
-          establishmentService: estService,
-          queueService: queueService,
-        ),
-      ));
+      await tester.pumpWidget(_buildHome(auth: auth, est: estService, queue: queueService));
       await tester.pumpAndSettle();
 
       expect(find.text('Você está na fila'), findsOneWidget);
       expect(find.text('Farmácia Popular'), findsOneWidget);
-      expect(find.text('Média'), findsOneWidget); // 8 pessoas → Média
+      expect(find.text('Média'), findsOneWidget);
       expect(find.text('10 min'), findsOneWidget);
       expect(find.text('Sair da fila'), findsOneWidget);
     });
@@ -213,8 +206,6 @@ void main() {
       final estService = MockEstablishmentService();
       final queueService = MockQueueService();
       when(() => auth.currentUser).thenReturn(null);
-      when(() => estService.watchUserEstablishments(any()))
-          .thenAnswer((_) => Stream.value([]));
 
       final entry = _makeEntry(estId: 'est-1', position: 2);
       when(() => queueService.watchUserActiveQueue(any()))
@@ -224,13 +215,7 @@ void main() {
       when(() => queueService.watchQueueForEstablishment('est-1'))
           .thenAnswer((_) => Stream.value(null));
 
-      await tester.pumpWidget(MaterialApp(
-        home: HomeScreen(
-          authService: auth,
-          establishmentService: estService,
-          queueService: queueService,
-        ),
-      ));
+      await tester.pumpWidget(_buildHome(auth: auth, est: estService, queue: queueService));
       await tester.pumpAndSettle();
 
       expect(find.text('Posição'), findsOneWidget);
@@ -243,8 +228,6 @@ void main() {
       final estService = MockEstablishmentService();
       final queueService = MockQueueService();
       when(() => auth.currentUser).thenReturn(null);
-      when(() => estService.watchUserEstablishments(any()))
-          .thenAnswer((_) => Stream.value([]));
 
       final entry = _makeEntry();
       when(() => queueService.watchUserActiveQueue(any()))
@@ -254,13 +237,7 @@ void main() {
       when(() => queueService.watchQueueForEstablishment(any()))
           .thenAnswer((_) => Stream.value(null));
 
-      await tester.pumpWidget(MaterialApp(
-        home: HomeScreen(
-          authService: auth,
-          establishmentService: estService,
-          queueService: queueService,
-        ),
-      ));
+      await tester.pumpWidget(_buildHome(auth: auth, est: estService, queue: queueService));
       await tester.pumpAndSettle();
 
       expect(find.text('Fui atendido'), findsOneWidget);
@@ -271,8 +248,6 @@ void main() {
       final estService = MockEstablishmentService();
       final queueService = MockQueueService();
       when(() => auth.currentUser).thenReturn(null);
-      when(() => estService.watchUserEstablishments(any()))
-          .thenAnswer((_) => Stream.value([]));
 
       final entry = _makeEntry();
       when(() => queueService.watchUserActiveQueue(any()))
@@ -282,191 +257,10 @@ void main() {
       when(() => queueService.watchQueueForEstablishment(any()))
           .thenAnswer((_) => Stream.value(null));
 
-      await tester.pumpWidget(MaterialApp(
-        home: HomeScreen(
-          authService: auth,
-          establishmentService: estService,
-          queueService: queueService,
-        ),
-      ));
+      await tester.pumpWidget(_buildHome(auth: auth, est: estService, queue: queueService));
       await tester.pumpAndSettle();
 
       expect(find.byType(TextField), findsNothing);
-    });
-  });
-
-  // ── Status na lista de estabelecimentos ────────────────────────────────────
-
-  group('HomeScreen — status da fila nos cards de estabelecimento', () {
-    testWidgets('exibe status Baixa para menos de 5 pessoas', (tester) async {
-      final auth = MockAuthService();
-      final estService = MockEstablishmentService();
-      final queueService = MockQueueService();
-      when(() => auth.currentUser).thenReturn(null);
-      when(() => queueService.watchUserActiveQueue(any()))
-          .thenAnswer((_) => Stream.value(null));
-
-      final est = _makeEstablishment(id: 'est-1');
-      final queue = _makeQueue(estId: 'est-1', qty: 3, waitTime: 5);
-      when(() => estService.watchUserEstablishments(any()))
-          .thenAnswer((_) => Stream.value([est]));
-      when(() => queueService.watchQueueForEstablishment('est-1'))
-          .thenAnswer((_) => Stream.value(queue));
-
-      await tester.pumpWidget(MaterialApp(
-        home: HomeScreen(
-          authService: auth,
-          establishmentService: estService,
-          queueService: queueService,
-        ),
-      ));
-      await tester.pumpAndSettle();
-
-      expect(find.textContaining('Baixa'), findsOneWidget);
-      expect(find.textContaining('Pessoas na fila'), findsOneWidget);
-      expect(find.textContaining('Tempo esperado'), findsOneWidget);
-    });
-
-    testWidgets('exibe dados da fila para 5–15 pessoas', (tester) async {
-      final auth = MockAuthService();
-      final estService = MockEstablishmentService();
-      final queueService = MockQueueService();
-      when(() => auth.currentUser).thenReturn(null);
-      when(() => queueService.watchUserActiveQueue(any()))
-          .thenAnswer((_) => Stream.value(null));
-
-      final est = _makeEstablishment(id: 'est-2', name: 'Supermercado');
-      final queue = _makeQueue(estId: 'est-2', qty: 10, waitTime: 12);
-      when(() => estService.watchUserEstablishments(any()))
-          .thenAnswer((_) => Stream.value([est]));
-      when(() => queueService.watchQueueForEstablishment('est-2'))
-          .thenAnswer((_) => Stream.value(queue));
-
-      await tester.pumpWidget(MaterialApp(
-        home: HomeScreen(
-          authService: auth,
-          establishmentService: estService,
-          queueService: queueService,
-        ),
-      ));
-      await tester.pumpAndSettle();
-
-      expect(find.textContaining('Pessoas na fila'), findsOneWidget);
-      expect(find.textContaining('10'), findsOneWidget);
-      expect(find.textContaining('12 min'), findsOneWidget);
-    });
-
-    testWidgets('exibe status Alta para mais de 15 pessoas', (tester) async {
-      final auth = MockAuthService();
-      final estService = MockEstablishmentService();
-      final queueService = MockQueueService();
-      when(() => auth.currentUser).thenReturn(null);
-      when(() => queueService.watchUserActiveQueue(any()))
-          .thenAnswer((_) => Stream.value(null));
-
-      final est = _makeEstablishment(id: 'est-3', name: 'Shopping');
-      final queue = _makeQueue(estId: 'est-3', qty: 25, waitTime: 20);
-      when(() => estService.watchUserEstablishments(any()))
-          .thenAnswer((_) => Stream.value([est]));
-      when(() => queueService.watchQueueForEstablishment('est-3'))
-          .thenAnswer((_) => Stream.value(queue));
-
-      await tester.pumpWidget(MaterialApp(
-        home: HomeScreen(
-          authService: auth,
-          establishmentService: estService,
-          queueService: queueService,
-        ),
-      ));
-      await tester.pumpAndSettle();
-
-      expect(find.textContaining('Alta'), findsWidgets);
-      expect(find.textContaining('25'), findsWidgets);
-      expect(find.textContaining('20 min'), findsOneWidget);
-    });
-  });
-
-  // ── Botão "+1 cliente atendido" no card do estabelecimento ────────────────
-
-  group('HomeScreen — botão "+1 cliente atendido" no card do estabelecimento', () {
-    testWidgets('exibe o botão quando há pessoas na fila', (tester) async {
-      final auth = MockAuthService();
-      final estService = MockEstablishmentService();
-      final queueService = MockQueueService();
-      when(() => auth.currentUser).thenReturn(null);
-      when(() => queueService.watchUserActiveQueue(any()))
-          .thenAnswer((_) => Stream.value(null));
-
-      final est = _makeEstablishment(id: 'est-1', name: 'Lanchonete');
-      final queue = _makeQueue(estId: 'est-1', qty: 5, waitTime: 8);
-      when(() => estService.watchUserEstablishments(any()))
-          .thenAnswer((_) => Stream.value([est]));
-      when(() => queueService.watchQueueForEstablishment('est-1'))
-          .thenAnswer((_) => Stream.value(queue));
-
-      await tester.pumpWidget(MaterialApp(
-        home: HomeScreen(
-          authService: auth,
-          establishmentService: estService,
-          queueService: queueService,
-        ),
-      ));
-      await tester.pumpAndSettle();
-
-      expect(find.text('+1 cliente atendido'), findsOneWidget);
-    });
-
-    testWidgets('não exibe o botão quando a fila está vazia', (tester) async {
-      final auth = MockAuthService();
-      final estService = MockEstablishmentService();
-      final queueService = MockQueueService();
-      when(() => auth.currentUser).thenReturn(null);
-      when(() => queueService.watchUserActiveQueue(any()))
-          .thenAnswer((_) => Stream.value(null));
-
-      final est = _makeEstablishment(id: 'est-1', name: 'Lanchonete');
-      final queue = _makeQueue(estId: 'est-1', qty: 0, waitTime: 0);
-      when(() => estService.watchUserEstablishments(any()))
-          .thenAnswer((_) => Stream.value([est]));
-      when(() => queueService.watchQueueForEstablishment('est-1'))
-          .thenAnswer((_) => Stream.value(queue));
-
-      await tester.pumpWidget(MaterialApp(
-        home: HomeScreen(
-          authService: auth,
-          establishmentService: estService,
-          queueService: queueService,
-        ),
-      ));
-      await tester.pumpAndSettle();
-
-      expect(find.text('+1 cliente atendido'), findsNothing);
-    });
-
-    testWidgets('não exibe o botão quando não há dados de fila', (tester) async {
-      final auth = MockAuthService();
-      final estService = MockEstablishmentService();
-      final queueService = MockQueueService();
-      when(() => auth.currentUser).thenReturn(null);
-      when(() => queueService.watchUserActiveQueue(any()))
-          .thenAnswer((_) => Stream.value(null));
-
-      final est = _makeEstablishment(id: 'est-1');
-      when(() => estService.watchUserEstablishments(any()))
-          .thenAnswer((_) => Stream.value([est]));
-      when(() => queueService.watchQueueForEstablishment('est-1'))
-          .thenAnswer((_) => Stream.value(null));
-
-      await tester.pumpWidget(MaterialApp(
-        home: HomeScreen(
-          authService: auth,
-          establishmentService: estService,
-          queueService: queueService,
-        ),
-      ));
-      await tester.pumpAndSettle();
-
-      expect(find.text('+1 cliente atendido'), findsNothing);
     });
   });
 

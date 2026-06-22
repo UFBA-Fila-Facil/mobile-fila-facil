@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
 import '../services/establishment_service.dart';
+import '../services/nearby_establishments_service.dart';
 import '../services/queue_service.dart';
 import 'home_screen.dart';
 import 'my_establishments_screen.dart';
@@ -10,12 +11,14 @@ class MainShell extends StatefulWidget {
   final AuthService authService;
   final EstablishmentService establishmentService;
   final QueueService queueService;
+  final NearbyEstablishmentsService? nearbyEstablishmentsService;
 
   MainShell({
     super.key,
     required this.authService,
     EstablishmentService? establishmentService,
     QueueService? queueService,
+    this.nearbyEstablishmentsService,
   })  : establishmentService = establishmentService ?? EstablishmentService(),
         queueService = queueService ?? QueueService();
 
@@ -36,6 +39,7 @@ class _MainShellState extends State<MainShell> {
             authService: widget.authService,
             establishmentService: widget.establishmentService,
             queueService: widget.queueService,
+            nearbyEstablishmentsService: widget.nearbyEstablishmentsService,
           ),
           MyEstablishmentsScreen(
             authService: widget.authService,

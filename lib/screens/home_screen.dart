@@ -14,12 +14,14 @@ class HomeScreen extends StatefulWidget {
   final AuthService authService;
   final EstablishmentService establishmentService;
   final QueueService queueService;
+  final NearbyEstablishmentsService? nearbyEstablishmentsService;
 
   HomeScreen({
     super.key,
     required this.authService,
     EstablishmentService? establishmentService,
     QueueService? queueService,
+    this.nearbyEstablishmentsService,
   })  : establishmentService = establishmentService ?? EstablishmentService(),
         queueService = queueService ?? QueueService();
 
@@ -37,7 +39,8 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _nearbyFuture = NearbyEstablishmentsService().getNearbyEstablishments();
+    final nearbyService = widget.nearbyEstablishmentsService ?? NearbyEstablishmentsService();
+    _nearbyFuture = nearbyService.getNearbyEstablishments();
   }
 
   @override
