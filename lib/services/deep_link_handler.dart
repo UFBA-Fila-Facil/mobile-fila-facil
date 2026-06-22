@@ -38,6 +38,8 @@ class DeepLinkHandler {
         await _handleServeCustomer(context, uri, user.uid);
       case '/customer-arrived':
         await _handleCustomerArrived(context, uri, user.uid);
+      case '/join-queue':
+        await _handleJoinQueue(context, uri, user.uid);
       case '/leave-queue':
         await _handleUserQueueAction(context, user.uid, served: false);
       case '/served':
@@ -149,6 +151,70 @@ class DeepLinkHandler {
           iconColor: const Color(0xFF0CA79B),
           title: 'Cliente registrado!',
           message: 'Um novo cliente foi adicionado à fila de ${establishment.name}.',
+        );
+      }
+    } catch (e) {
+      if (context.mounted) await _showErrorDialog(context);
+    }
+  }
+
+  Future<void> _handleJoinQueue(
+      BuildContext context, Uri uri, String userId) async {
+    final estId = _notEmpty(uri.queryParameters['establishmentId']);
+
+    if (estId == null) {
+      await _showStyledDialog(
+        context,
+        icon: Icons.error_outline_rounded,
+        iconColor: Colors.orange,
+        title: 'Link incompleto',
+        message: 'O link não informou o estabelecimento. Verifique e tente novamente.',
+      );
+      return;
+    }
+
+    final activeEntry = await _actions.getUserActiveEntry(userId);
+    if (!context.mounted) return;
+
+    if (activeEntry != null) {
+      final currentEst = await _actions.getEstablishmentById(activeEntry.establishmentId);
+      if (!context.mounted) return;
+      final currentName = currentEst?.name ?? 'outro estabelecimento';
+      await _showStyledDialog(
+        context,
+        icon: Icons.warning_amber_rounded,
+        iconColor: Colors.orange,
+        title: 'Você já está em uma fila',
+        message: 'Você está na fila de $currentName. '
+            'Saia dessa fila antes de entrar em outra.',
+      );
+      return;
+    }
+
+    final establishment = await _actions.getEstablishmentById(estId);
+    if (!context.mounted) return;
+
+    if (establishment == null) {
+      await _showEstablishmentNotFoundDialog(context, estId);
+      return;
+    }
+
+    final confirmed = await _showConfirmDialog(
+      context,
+      title: 'Entrar na fila',
+      message: 'Confirmar entrada na fila de ${establishment.name}?',
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    try {
+      await _actions.joinQueue(userId, estId);
+      if (context.mounted) {
+        await _showStyledDialog(
+          context,
+          icon: Icons.queue_rounded,
+          iconColor: const Color(0xFF0CA79B),
+          title: 'Você entrou na fila!',
+          message: 'Sua posição na fila de ${establishment.name} foi registrada.',
         );
       }
     } catch (e) {

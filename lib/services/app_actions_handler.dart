@@ -83,6 +83,9 @@ class AppActionsHandler {
   Future<void> addCustomerToQueue(String establishmentId) =>
       _queueService.addCustomerToQueue(establishmentId);
 
+  Future<void> joinQueue(String userId, String establishmentId) =>
+      _queueService.joinQueue(userId, establishmentId);
+
   Future<void> leaveQueue(String entryId) =>
       _queueService.leaveQueue(entryId);
 

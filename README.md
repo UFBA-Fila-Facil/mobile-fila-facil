@@ -370,6 +370,57 @@ A solicitação em runtime é gerenciada pelo pacote `geolocator`. Se o usuário
 
 ---
 
+## 🔗 Entrar na Fila por QR Code
+
+Administradores de estabelecimentos podem gerar um QR Code que, ao ser escaneado pelo cliente, aciona o deeplink `filafacil://join-queue` e o coloca diretamente na fila daquele estabelecimento.
+
+### Deeplink
+
+| | |
+|---|---|
+| **URL** | `filafacil://join-queue?establishmentId=<ID>` |
+| **Parâmetro** | `establishmentId` — ID do estabelecimento no Firestore (obrigatório) |
+| **Pré-requisito** | Usuário autenticado no app |
+
+**Comportamentos:**
+
+| Situação | Resultado |
+|---|---|
+| Usuário não está em nenhuma fila | Exibe confirmação → entra na fila |
+| Usuário já está em outra fila | Exibe erro com o nome da fila atual e orienta sair antes de entrar em outra |
+| `establishmentId` ausente | Exibe erro de link incompleto |
+| Estabelecimento não encontrado | Exibe erro de estabelecimento não encontrado |
+
+### Geração e compartilhamento do QR Code
+
+Na tela **Meus Estabelecimentos**, cada card exibe um botão de compartilhamento (`share_outlined`) à esquerda do menu `⋮`. Ao tocar, abre uma modal com:
+
+- Header em gradiente (`#0CA79B → #0A887E`) com o nome do estabelecimento e a frase *"Escaneie para entrar na fila"*
+- QR Code gerado dinamicamente para o deeplink `filafacil://join-queue?establishmentId=<ID>`
+- Rodapé com a marca **Fila Fácil**
+- Botão **Compartilhar** — exporta o card completo como PNG (pixel ratio 3×)
+
+O card exibido na modal é capturado diretamente via `RepaintBoundary`, garantindo que a imagem compartilhada seja idêntica ao preview.
+
+**Comportamento por plataforma:**
+
+| Plataforma | Comportamento ao compartilhar |
+|---|---|
+| Android / iOS | Abre o share nativo do sistema operacional via `share_plus` |
+| Web | Realiza o download do arquivo PNG diretamente no navegador via Blob + `<a>.click()` |
+
+### Arquivos envolvidos
+
+| Arquivo | Responsabilidade |
+|---|---|
+| `lib/screens/my_establishments_screen.dart` | Botão de share no card, modal com QR e captura como PNG |
+| `lib/utils/share_image_helper.dart` | Export condicional — seleciona implementação por plataforma |
+| `lib/utils/share_image_helper_io.dart` | Nativo: salva em diretório temporário e aciona `share_plus` |
+| `lib/utils/share_image_helper_web.dart` | Web: download via `package:web` + `dart:js_interop` |
+| `lib/services/deep_link_handler.dart` | Handler do deeplink `/join-queue` |
+
+---
+
 ## 🔔 Notificações Push
 
 O app envia notificações ao usuário em dois momentos:
