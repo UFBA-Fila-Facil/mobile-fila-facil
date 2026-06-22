@@ -370,6 +370,39 @@ A solicitação em runtime é gerenciada pelo pacote `geolocator`. Se o usuário
 
 ---
 
+## 🔔 Notificações Push
+
+O app envia notificações ao usuário em dois momentos:
+
+| Evento | Mensagem |
+|---|---|
+| Usuário atinge posição 1 na fila | *"Atenção, você é o próximo a ser atendido."* |
+| Posição do usuário == capacidade do estabelecimento | *"Atenção, você pode ser atendido a qualquer momento."* |
+
+### Arquitetura de notificações
+
+```
+App aberto (foreground)
+  → QueueNotificationMonitor (stream Firestore em tempo real)
+      → flutter_local_notifications
+
+App em segundo plano — Android
+  → Android Foreground Service (flutter_foreground_task)
+      mantém o processo vivo → QueueNotificationMonitor continua ativo
+
+App em segundo plano — iOS / App encerrado
+  → Cloudflare Worker (cron) ou Firebase Cloud Function
+      → FCM HTTP v1 API → sistema operacional exibe a notificação
+```
+
+### Cloudflare Worker
+
+Um **Cloudflare Worker** (`cloudflare/worker.js`) executa a cada 1 minuto via Cron Trigger e monitora as entradas ativas na coleção `user_queues` do Firestore. Quando detecta uma mudança de posição relevante, envia uma notificação push via **Firebase Cloud Messaging (FCM HTTP v1 API)**.
+
+*
+---
+---
+
 ## 📌 Observações
 
 Este projeto foi estruturado com foco em boas práticas modernas de arquitetura mobile, sendo facilmente escalável e adaptável a novas funcionalidades.
