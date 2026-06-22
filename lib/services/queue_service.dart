@@ -177,4 +177,26 @@ class QueueService {
       );
     });
   }
+
+  /// Persist an anonymous queue report for an establishment.
+  /// Stored in `queue_reports` without referencing user identifiers.
+  Future<void> reportQueue({
+    required String establishmentId,
+    String? queueId,
+    required String perceivedSize,
+    int? estimatedNumber,
+    required int waitMinutes,
+    required String serviceSpeed,
+  }) async {
+    final reports = _firestore.collection('queue_reports');
+    await reports.add({
+      'establishmentId': establishmentId,
+      'queueId': queueId,
+      'perceivedSize': perceivedSize,
+      'estimatedNumber': estimatedNumber,
+      'waitMinutes': waitMinutes,
+      'serviceSpeed': serviceSpeed,
+      'createdAt': Timestamp.now(),
+    });
+  }
 }

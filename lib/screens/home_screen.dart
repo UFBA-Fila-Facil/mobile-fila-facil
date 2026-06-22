@@ -9,6 +9,7 @@ import '../services/auth_service.dart';
 import '../services/establishment_service.dart';
 import '../services/nearby_establishments_service.dart';
 import '../services/queue_service.dart';
+import 'queue_report_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final AuthService authService;
@@ -410,6 +411,34 @@ class _HomeScreenState extends State<HomeScreen> {
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.redAccent,
                       side: const BorderSide(color: Colors.redAccent),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              QueueReportScreen(
+                                establishmentId: entry.establishmentId,
+                                queueId: entry.queueId,
+                                queueService: widget.queueService,
+                              ),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.report_gmailerrorred),
+                    label: const Text('Reportar fila'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF0CA79B),
+                      side: const BorderSide(color: Color(0xFF0CA79B)),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
                       ),
