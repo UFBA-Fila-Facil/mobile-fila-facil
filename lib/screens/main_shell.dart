@@ -1,3 +1,7 @@
+import 'dart:async';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
@@ -28,6 +32,35 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
+  StreamSubscription<String>? _tokenRefreshSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncFcmToken();
+    _tokenRefreshSub =
+        FirebaseMessaging.instance.onTokenRefresh.listen(_saveFcmToken);
+  }
+
+  @override
+  void dispose() {
+    _tokenRefreshSub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _syncFcmToken() async {
+    final token = await FirebaseMessaging.instance.getToken();
+    if (token != null) await _saveFcmToken(token);
+  }
+
+  Future<void> _saveFcmToken(String token) async {
+    final uid = widget.authService.currentUser?.uid;
+    if (uid == null) return;
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .set({'fcmToken': token}, SetOptions(merge: true));
+  }
 
   @override
   Widget build(BuildContext context) {
