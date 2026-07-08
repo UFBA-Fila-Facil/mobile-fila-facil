@@ -16,6 +16,8 @@ class MainShell extends StatefulWidget {
   final EstablishmentService establishmentService;
   final QueueService queueService;
   final NearbyEstablishmentsService? nearbyEstablishmentsService;
+  final FirebaseMessaging messaging;
+  final FirebaseFirestore firestore;
 
   MainShell({
     super.key,
@@ -23,8 +25,12 @@ class MainShell extends StatefulWidget {
     EstablishmentService? establishmentService,
     QueueService? queueService,
     this.nearbyEstablishmentsService,
+    FirebaseMessaging? messaging,
+    FirebaseFirestore? firestore,
   })  : establishmentService = establishmentService ?? EstablishmentService(),
-        queueService = queueService ?? QueueService();
+        queueService = queueService ?? QueueService(),
+        messaging = messaging ?? FirebaseMessaging.instance,
+        firestore = firestore ?? FirebaseFirestore.instance;
 
   @override
   State<MainShell> createState() => _MainShellState();
@@ -39,7 +45,7 @@ class _MainShellState extends State<MainShell> {
     super.initState();
     _syncFcmToken();
     _tokenRefreshSub =
-        FirebaseMessaging.instance.onTokenRefresh.listen(_saveFcmToken);
+        widget.messaging.onTokenRefresh.listen(_saveFcmToken);
   }
 
   @override
@@ -49,14 +55,14 @@ class _MainShellState extends State<MainShell> {
   }
 
   Future<void> _syncFcmToken() async {
-    final token = await FirebaseMessaging.instance.getToken();
+    final token = await widget.messaging.getToken();
     if (token != null) await _saveFcmToken(token);
   }
 
   Future<void> _saveFcmToken(String token) async {
     final uid = widget.authService.currentUser?.uid;
     if (uid == null) return;
-    await FirebaseFirestore.instance
+    await widget.firestore
         .collection('users')
         .doc(uid)
         .set({'fcmToken': token}, SetOptions(merge: true));

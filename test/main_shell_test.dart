@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -17,6 +19,10 @@ class MockEstablishmentService extends Mock implements EstablishmentService {}
 
 class MockQueueService extends Mock implements QueueService {}
 
+class MockFirebaseMessaging extends Mock implements FirebaseMessaging {}
+
+class MockFirebaseFirestore extends Mock implements FirebaseFirestore {}
+
 class FakeEstablishment extends Fake implements Establishment {}
 
 class FakeQueueModel extends Fake implements QueueModel {}
@@ -33,16 +39,21 @@ void _stubServices(
   MockAuthService auth,
   MockEstablishmentService est,
   MockQueueService queue,
+  MockFirebaseMessaging messaging,
 ) {
   when(() => auth.currentUser).thenReturn(null);
   when(() => queue.watchUserActiveQueue(any())).thenAnswer((_) => Stream.value(null));
   when(() => est.watchUserEstablishments(any())).thenAnswer((_) => Stream.value([]));
+  when(() => messaging.getToken()).thenAnswer((_) async => null);
+  when(() => messaging.onTokenRefresh).thenAnswer((_) => const Stream.empty());
 }
 
 Widget _buildShell({
   required MockAuthService auth,
   required MockEstablishmentService est,
   required MockQueueService queue,
+  required MockFirebaseMessaging messaging,
+  required MockFirebaseFirestore firestore,
 }) =>
     MaterialApp(
       home: MainShell(
@@ -50,6 +61,8 @@ Widget _buildShell({
         establishmentService: est,
         queueService: queue,
         nearbyEstablishmentsService: FakeNearbyEstablishmentsService(),
+        messaging: messaging,
+        firestore: firestore,
       ),
     );
 
@@ -66,9 +79,17 @@ void main() {
       final auth = MockAuthService();
       final est = MockEstablishmentService();
       final queue = MockQueueService();
-      _stubServices(auth, est, queue);
+      final messaging = MockFirebaseMessaging();
+      final firestore = MockFirebaseFirestore();
+      _stubServices(auth, est, queue, messaging);
 
-      await tester.pumpWidget(_buildShell(auth: auth, est: est, queue: queue));
+      await tester.pumpWidget(_buildShell(
+        auth: auth,
+        est: est,
+        queue: queue,
+        messaging: messaging,
+        firestore: firestore,
+      ));
       await tester.pump();
 
       expect(find.text('Início'), findsOneWidget);
@@ -79,9 +100,17 @@ void main() {
       final auth = MockAuthService();
       final est = MockEstablishmentService();
       final queue = MockQueueService();
-      _stubServices(auth, est, queue);
+      final messaging = MockFirebaseMessaging();
+      final firestore = MockFirebaseFirestore();
+      _stubServices(auth, est, queue, messaging);
 
-      await tester.pumpWidget(_buildShell(auth: auth, est: est, queue: queue));
+      await tester.pumpWidget(_buildShell(
+        auth: auth,
+        est: est,
+        queue: queue,
+        messaging: messaging,
+        firestore: firestore,
+      ));
       await tester.pump();
 
       expect(
@@ -95,9 +124,17 @@ void main() {
       final auth = MockAuthService();
       final est = MockEstablishmentService();
       final queue = MockQueueService();
-      _stubServices(auth, est, queue);
+      final messaging = MockFirebaseMessaging();
+      final firestore = MockFirebaseFirestore();
+      _stubServices(auth, est, queue, messaging);
 
-      await tester.pumpWidget(_buildShell(auth: auth, est: est, queue: queue));
+      await tester.pumpWidget(_buildShell(
+        auth: auth,
+        est: est,
+        queue: queue,
+        messaging: messaging,
+        firestore: firestore,
+      ));
       await tester.pump();
 
       await tester.tap(find.text('Meus estabelecimentos').last);
