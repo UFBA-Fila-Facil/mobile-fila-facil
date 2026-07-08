@@ -16,22 +16,30 @@ import 'screens/splash_screen.dart';
 import 'services/auth_service.dart';
 import 'services/deep_link_handler.dart';
 
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+}
+
 Future<void> main() async {
   final widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   await FirebaseMessaging.instance.requestPermission();
+  final initialUri = await AppLinks().getInitialLink();
   FlutterNativeSplash.remove();
-  runApp(const MyApp());
+  runApp(MyApp(skipSplash: initialUri != null));
 }
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 class MyApp extends StatefulWidget {
   final AuthService? authService;
-  const MyApp({super.key, this.authService});
+  final bool skipSplash;
+  const MyApp({super.key, this.authService, this.skipSplash = false});
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -46,6 +54,8 @@ class _MyAppState extends State<MyApp> {
   // getInitialLink() quanto no uriLinkStream quando o app abre a frio.
   String? _lastHandledUri;
 
+  StreamSubscription<RemoteMessage>? _fcmSub;
+
   @override
   void initState() {
     super.initState();
@@ -55,11 +65,13 @@ class _MyAppState extends State<MyApp> {
       _dispatchUri,
       onError: (_) {},
     );
+    _fcmSub = FirebaseMessaging.onMessage.listen((_) {});
   }
 
   @override
   void dispose() {
     _sub?.cancel();
+    _fcmSub?.cancel();
     super.dispose();
   }
 
@@ -89,7 +101,9 @@ class _MyAppState extends State<MyApp> {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: SplashScreen(next: AuthGate(authService: service)),
+      home: widget.skipSplash
+          ? AuthGate(authService: service)
+          : SplashScreen(next: AuthGate(authService: service)),
       routes: {
         RegisterScreen.routeName: (context) => RegisterScreen(authService: service),
         ForgotPasswordScreen.routeName: (context) =>
