@@ -3,6 +3,39 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/queue_model.dart';
 import '../models/user_queue_entry.dart';
 
+class QueueReport {
+  final String queueId;
+  final String establishmentId;
+  final String perceivedSize;
+  final int estimatedWaitTime;
+  final String serviceSpeed;
+  final int? estimatedCount;
+  final DateTime createdAt;
+
+  QueueReport({
+    required this.queueId,
+    required this.establishmentId,
+    required this.perceivedSize,
+    required this.estimatedWaitTime,
+    required this.serviceSpeed,
+    this.estimatedCount,
+    required this.createdAt,
+  });
+
+  Map<String, Object?> toMap() {
+    return {
+      'queueId': queueId,
+      'establishmentId': establishmentId,
+      'perceivedSize': perceivedSize,
+      'estimatedWaitTime': estimatedWaitTime,
+      'serviceSpeed': serviceSpeed,
+      'estimatedCount': estimatedCount,
+      'createdAt': Timestamp.fromDate(createdAt),
+      'anonymous': true,
+    };
+  }
+}
+
 class QueueService {
   final FirebaseFirestore _firestore;
 
@@ -162,6 +195,111 @@ class QueueService {
       final currentCount = (queueSnap.data()?['quantityPeople'] as num?)?.toInt() ?? 0;
       transaction.update(queueRef, {'quantityPeople': currentCount + 1});
     });
+  }
+
+  Future<void> submitQueueReport({
+    required String queueId,
+    required String establishmentId,
+    required String perceivedSize,
+    required int estimatedWaitTime,
+    required String serviceSpeed,
+    int? estimatedCount,
+  }) async {
+    final report = QueueReport(
+      queueId: queueId,
+      establishmentId: establishmentId,
+      perceivedSize: perceivedSize,
+      estimatedWaitTime: estimatedWaitTime,
+      serviceSpeed: serviceSpeed,
+      estimatedCount: estimatedCount,
+      createdAt: DateTime.now().toUtc(),
+    );
+
+    final reportRef = _firestore.collection('queue_reports').doc();
+    final queueRef = _firestore.collection('queues').doc(queueId);
+
+    await _firestore.runTransaction((transaction) async {
+      final queueSnapshot = await transaction.get(queueRef);
+      if (!queueSnapshot.exists) {
+        throw Exception('Fila não encontrada para este relatório.');
+      }
+
+      final currentWait = (queueSnapshot.data()?['averageWaitingTime'] as num?)?.toInt() ?? 0;
+      final currentQuantity = (queueSnapshot.data()?['quantityPeople'] as num?)?.toInt() ?? 0;
+      final currentServiceType = (queueSnapshot.data()?['serviceType'] as String?) ?? '';
+
+      final updatedWait = _mergeEstimatedWaitTime(
+        currentWait: currentWait,
+        newEstimate: estimatedWaitTime,
+      );
+      final updatedQuantity = _mergePerceivedQueueSize(
+        currentQuantity: currentQuantity,
+        perceivedSize: perceivedSize,
+        estimatedCount: estimatedCount,
+        serviceSpeed: serviceSpeed,
+      );
+
+      transaction.set(reportRef, report.toMap());
+      transaction.update(queueRef, {
+        'averageWaitingTime': updatedWait,
+        'quantityPeople': updatedQuantity,
+        'serviceType': currentServiceType.isEmpty ? serviceSpeed : currentServiceType,
+      });
+    });
+  }
+
+  int _mergeEstimatedWaitTime({required int currentWait, required int newEstimate}) {
+    if (currentWait <= 0) return newEstimate;
+    return ((currentWait + newEstimate) / 2).round();
+  }
+
+  int _mergePerceivedQueueSize({
+    required int currentQuantity,
+    required String perceivedSize,
+    int? estimatedCount,
+    required String serviceSpeed,
+  }) {
+    final baseFeedback = _feedbackToQuantity(perceivedSize, estimatedCount);
+    final speedAdjustment = _serviceSpeedAdjustment(serviceSpeed);
+
+    if (currentQuantity <= 0) {
+      return (baseFeedback + speedAdjustment).clamp(0, 200).toInt();
+    }
+
+    final weighted = ((currentQuantity * 0.7) + (baseFeedback * 0.25) + (speedAdjustment * 0.05)).round();
+    return weighted.clamp(0, 200).toInt();
+  }
+
+  int _feedbackToQuantity(String perceivedSize, int? estimatedCount) {
+    if (estimatedCount != null && estimatedCount > 0) {
+      return estimatedCount;
+    }
+
+    switch (perceivedSize.toLowerCase()) {
+      case 'pequena':
+        return 2;
+      case 'média':
+        return 8;
+      case 'grande':
+        return 16;
+      case 'estimada':
+        return 10;
+      default:
+        return 0;
+    }
+  }
+
+  int _serviceSpeedAdjustment(String serviceSpeed) {
+    switch (serviceSpeed.toLowerCase()) {
+      case 'rápido':
+        return -2;
+      case 'normal':
+        return 0;
+      case 'lento':
+        return 3;
+      default:
+        return 0;
+    }
   }
 
   Stream<UserQueueEntry?> watchUserActiveQueue(String userId) {
